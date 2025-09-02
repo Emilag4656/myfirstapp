@@ -3,172 +3,174 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Emilag — 11v11 DLS-style Controls + Animations & Sounds</title>
+<title>Emilag — 11v11 DLS-style + Touch Controls</title>
 <style>
-  :root{ --pitch1:#3aa84b; --pitch2:#2b8b37; }
-  body{ margin:0; font-family:Inter, Arial, sans-serif; background:#052; color:#fff; display:flex; flex-direction:column; align-items:center; padding:12px; }
-  #header{ width:100%; max-width:1100px; display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:8px; }
+  :root{ --pitch1:#3aa84b; --pitch2:#2b8b37; --ui-bg: rgba(0,0,0,0.35); }
+  body{ margin:0; font-family:Inter, Arial, sans-serif; background:#052; color:#fff; display:flex; flex-direction:column; align-items:center; padding:8px; }
+  #header{ width:100%; max-width:1100px; display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:6px; }
   #score{ font-size:18px; }
   #msg{ font-size:14px; color:#ffd; }
-  #controls{ display:flex; gap:8px; align-items:center; }
-  button{ padding:6px 10px; border-radius:6px; border:none; cursor:pointer; background:#0b63d9; color:white; }
-  canvas{ background:linear-gradient(180deg,var(--pitch1),var(--pitch2)); border:6px solid #074; border-radius:8px; max-width:100%; height:auto; box-shadow:0 10px 30px rgba(0,0,0,0.6); }
-  .hint{ font-size:13px; color:#ddd; margin-top:6px; }
-  @media(max-width:900px){ #header{flex-direction:column; gap:6px} }
+  #controlsTop{ display:flex; gap:8px; align-items:center; }
+  button.topBtn{ padding:6px 10px; border-radius:6px; border:none; cursor:pointer; background:#0b63d9; color:white; }
+  canvas{ background:linear-gradient(180deg,var(--pitch1),var(--pitch2)); border:6px solid #074; border-radius:8px; max-width:100%; height:auto; box-shadow:0 10px 30px rgba(0,0,0,0.6); display:block; }
+  .hint{ font-size:13px; color:#ddd; margin-top:6px; text-align:center; max-width:1100px; }
+
+  /* Touch controls */
+  .touch-controls { position: fixed; left: 12px; bottom: 12px; width: 220px; height: 220px; pointer-events: none; z-index: 60; }
+  .joystick-base { position:absolute; left:0; bottom:0; width: 160px; height:160px; border-radius: 50%; background: var(--ui-bg); display:flex; align-items:center; justify-content:center; pointer-events: auto; }
+  .joystick-knob { width:56px; height:56px; border-radius:50%; background:rgba(255,255,255,0.9); transform: translate(0,0); touch-action:none; }
+  .touch-buttons { position: fixed; right: 12px; bottom: 12px; width: 220px; height: 220px; pointer-events: none; z-index: 60; }
+  .btns { position:absolute; right:0; bottom:0; width:220px; height:220px; display:flex; flex-direction:column; gap:10px; align-items:flex-end; justify-content:flex-end; pointer-events:auto; }
+  .action-row { display:flex; gap:10px; }
+  .action-btn { width:72px; height:72px; border-radius:12px; background: rgba(255,255,255,0.95); color:#111; font-weight:700; display:flex; align-items:center; justify-content:center; touch-action: none; user-select:none; }
+  .action-btn.small { width:48px; height:48px; border-radius:10px; }
+  /* small phones: shrink controls */
+  @media (max-width:420px){
+    .joystick-base{ width:130px; height:130px; }
+    .joystick-knob{ width:48px;height:48px; }
+    .action-btn{ width:60px;height:60px;font-size:14px;}
+    .touch-controls{ width:180px;height:180px; }
+    .touch-buttons{ width:180px;height:180px; }
+  }
+  /* avoid overlapping the canvas clickable area when focusing small screens */
+  .ui-hidden-mobile { display:none; }
 </style>
 </head>
 <body>
-  <div id="header">
+  <div id="header" style="max-width:1100px; width:100%;">
     <div id="score">Red 0 - 0 Blue</div>
     <div id="msg">Time: 10:00</div>
-    <div id="controls">
-      <button id="resetBtn">Reset</button>
-      <button id="toggleAuto">AutoSwitch: OFF (Tab manual)</button>
-      <button id="muteBtn">Mute: OFF</button>
+    <div id="controlsTop">
+      <button id="resetBtn" class="topBtn">Reset</button>
+      <button id="toggleAuto" class="topBtn">AutoSwitch: OFF</button>
+      <button id="muteBtn" class="topBtn">Mute: OFF</button>
     </div>
   </div>
 
   <canvas id="c" width="1100" height="680"></canvas>
+
+  <!-- Touch UI: joystick (left) and buttons (right) -->
+  <div class="touch-controls" aria-hidden="true">
+    <div id="joystickBase" class="joystick-base">
+      <div id="joystickKnob" class="joystick-knob"></div>
+    </div>
+  </div>
+
+  <div class="touch-buttons" aria-hidden="true">
+    <div class="btns">
+      <div class="action-row">
+        <div id="sprintBtn" class="action-btn small">SP</div>
+        <div style="width:12px"></div>
+      </div>
+      <div class="action-row">
+        <div id="passBtn" class="action-btn">B</div>
+        <div id="shootBtn" class="action-btn">A</div>
+        <div id="switchBtn" class="action-btn">C</div>
+      </div>
+    </div>
+  </div>
+
   <div class="hint">
-    Controls: Move = Arrow keys or WASD — Switch active player = <b>Tab</b> — Toggle AutoSwitch = <b>C</b> — Kick = <b>Space</b>
+    Controls: Move = Arrow keys / WASD or joystick (touch). Switch player = Tab or C button. Kick/Shoot = Space or A. Pass = B. Sprint = hold SP.
   </div>
 
 <script>
-/* Emilag DLS-style 11v11 with leg animation + sounds + full control switching */
+/* Full game with touch joystick & action buttons integrated into the existing DLS-style engine.
+   This script builds on the earlier 11v11 DLS-style logic and adds touch controls. */
 
-/* ====== Audio setup (WebAudio synthesized sounds) ====== */
+/* ===== Audio (synth) ===== */
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
 let audioCtx = null;
 let mute = false;
-function ensureAudio(){
-  if(!audioCtx) audioCtx = new AudioCtx();
-}
-function playWhistle(){
-  if(mute) return;
-  ensureAudio();
-  const t = audioCtx.currentTime;
-  const o = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  o.type = 'sine';
-  o.frequency.setValueAtTime(800, t);
-  o.frequency.exponentialRampToValueAtTime(2200, t + 0.3);
-  g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(0.18, t + 0.02);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
-  o.connect(g); g.connect(audioCtx.destination);
-  o.start(t); o.stop(t + 0.65);
-}
-function playKick(){
-  if(mute) return;
-  ensureAudio();
-  const t = audioCtx.currentTime;
-  // short noise-like by using oscillator with detune + quick decay
-  const o = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  o.type = 'square';
-  o.frequency.setValueAtTime(120, t);
-  g.gain.setValueAtTime(0.0001, t);
-  g.gain.linearRampToValueAtTime(0.5, t + 0.01);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
-  o.connect(g); g.connect(audioCtx.destination);
-  o.start(t); o.stop(t + 0.28);
-}
-function playCheer(){
-  if(mute) return;
-  ensureAudio();
-  const t = audioCtx.currentTime;
-  const g = audioCtx.createGain();
-  g.gain.setValueAtTime(0.001, t);
-  g.gain.exponentialRampToValueAtTime(0.6, t + 0.2);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + 2.0);
-  const band = [400,600,1000,1600,2500];
-  const nodes = band.map(freq=>{
-    const o = audioCtx.createOscillator();
-    o.type = 'sawtooth';
-    o.frequency.value = freq + (Math.random()*200-100);
-    o.connect(g);
-    return o;
-  });
-  g.connect(audioCtx.destination);
-  nodes.forEach(o=>o.start(t));
-  nodes.forEach(o=>o.stop(t+1.8));
-}
+function ensureAudio(){ if(!audioCtx) audioCtx = new AudioCtx(); }
+function playWhistle(){ if(mute) return; ensureAudio(); const t=audioCtx.currentTime; const o=audioCtx.createOscillator(), g=audioCtx.createGain(); o.type='sine'; o.frequency.setValueAtTime(800,t); o.frequency.exponentialRampToValueAtTime(2200,t+0.3); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.18,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+0.6); o.connect(g); g.connect(audioCtx.destination); o.start(t); o.stop(t+0.65); }
+function playKick(){ if(mute) return; ensureAudio(); const t=audioCtx.currentTime; const o=audioCtx.createOscillator(), g=audioCtx.createGain(); o.type='square'; o.frequency.setValueAtTime(120,t); g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(0.5,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+0.25); o.connect(g); g.connect(audioCtx.destination); o.start(t); o.stop(t+0.28); }
+function playCheer(){ if(mute) return; ensureAudio(); const t=audioCtx.currentTime; const g=audioCtx.createGain(); g.gain.setValueAtTime(0.001,t); g.gain.exponentialRampToValueAtTime(0.6,t+0.2); g.gain.exponentialRampToValueAtTime(0.0001,t+2.0); const band=[400,600,1000,1600,2500]; const nodes=band.map(freq=>{ const o=audioCtx.createOscillator(); o.type='sawtooth'; o.frequency.value = freq + (Math.random()*200-100); o.connect(g); return o; }); g.connect(audioCtx.destination); nodes.forEach(o=>o.start(t)); nodes.forEach(o=>o.stop(t+1.8)); }
 
-/* ====== Canvas & world ====== */
+/* ===== Canvas & world setup ===== */
 const c = document.getElementById('c');
 const ctx = c.getContext('2d');
 const W = c.width, H = c.height;
 
-/* ====== Match state ====== */
+/* ===== Match state & geometry ===== */
 let scoreRed = 0, scoreBlue = 0;
-let gameTime = 600; // 10 minutes total (600s)
+let gameTime = 600; // seconds
 let halfTime = false, gameOver = false;
-let autoSwitch = false; // auto-switch nearest player to ball
-let isMuted = false;
-
-/* ====== Pitch geometry ====== */
+let autoSwitch = false;
 const bounds = { left:40, right: W-40, top:40, bottom: H-40 };
 const goalTop = H/2 - 60, goalBottom = H/2 + 60;
 
-/* ====== Ball ====== */
+/* ===== Ball ===== */
 const ball = { x: W/2, y: H/2, r:9, vx:0, vy:0 };
 
-/* ====== Player factory + teams ====== */
+/* ===== Player factory and teams ===== */
 function playerFactory(x,y,team,name,role,homeX,homeY){
-  return {
-    x,y,homeX:homeX??x,homeY:homeY??y,
-    r:11, vx:0, vy:0, team, name, role,
-    speed: role==='GK'?2.2:(role==='DEF'?2.4:(role==='MID'?2.8:3.1)),
-    legPhase:0, // for leg animation
-    facing:{x:1,y:0}, // facing vector
-    control:false,
-    cooldown:0
-  };
+  return { x,y,homeX:homeX??x,homeY:homeY??y, r:11, vx:0, vy:0, team, name, role,
+    speed: role==='GK'?2.2:(role==='DEF'?2.4:(role==='MID'?2.8:3.1)), legPhase:0, facing:{x:1,y:0}, control:false, cooldown:0, sprint:0, sprintCooldown:0 };
 }
-
-const red = [];
-const blue = [];
-
-// simple formation positions for both teams (4-4-2)
+const red = [], blue = [];
 const redPos = [
-  {x:80, y:H/2, role:'GK'},
-  {x:200,y:110, role:'DEF'},{x:200,y:220, role:'DEF'}, {x:200,y:340, role:'DEF'},{x:200,y:450, role:'DEF'},
+  {x:80, y:H/2, role:'GK'}, {x:200,y:110, role:'DEF'},{x:200,y:220, role:'DEF'},{x:200,y:340, role:'DEF'},{x:200,y:450, role:'DEF'},
   {x:360,y:100, role:'MID'},{x:360,y:220, role:'MID'},{x:360,y:340, role:'MID'},{x:360,y:460, role:'MID'},
   {x:520,y:220, role:'ATT'},{x:520,y:360, role:'ATT'}
 ];
-const bluePos = redPos.map(p=>({x: W - p.x, y: p.y, role: p.role}));
+const bluePos = redPos.map(p=>({ x: W - p.x, y: p.y, role: p.role }));
+const redNames = ['R.GK','R1','R2','R3','R4','RM1','RM2','RM3','RM4','R9','R10'];
+const blueNames = ['B.GK','B1','B2','B3','B4','BM1','BM2','BM3','BM4','B9','B10'];
 
 for(let i=0;i<11;i++){
-  red.push(playerFactory(redPos[i].x, redPos[i].y, 'red', ['R. GK','R1','R2','R3','R4','R5','R6','R7','R8','R9','R10'][i], redPos[i].role, redPos[i].x, redPos[i].y));
-  blue.push(playerFactory(bluePos[i].x, bluePos[i].y, 'blue', ['B. GK','B1','B2','B3','B4','B5','B6','B7','B8','B9','B10'][i], bluePos[i].role, bluePos[i].x, bluePos[i].y));
+  red.push(playerFactory(redPos[i].x, redPos[i].y, 'red', redNames[i], redPos[i].role, redPos[i].x, redPos[i].y));
+  blue.push(playerFactory(bluePos[i].x, bluePos[i].y, 'blue', blueNames[i], bluePos[i].role, bluePos[i].x, bluePos[i].y));
 }
 
-// Controlled logic: initially control one striker (red index 9)
+// controlled player index (initial striker)
 let controlledIndex = 9;
-red[controlledIndex].control = true;
+red.forEach((p,i)=> p.control = (i===controlledIndex));
 
-/* ====== Input ====== */
+/* ===== Input state ===== */
 const keys = {};
 window.addEventListener('keydown', (e)=>{
   if(e.key === 'Tab'){ e.preventDefault(); switchToNearestTeammate(); return; }
-  if(e.key === 'c' || e.key === 'C'){ autoSwitch = !autoSwitch; document.getElementById('toggleAuto').innerText = 'AutoSwitch: ' + (autoSwitch ? 'ON':'OFF'); }
-  if(e.key === 'm' || e.key==='M'){ toggleMute(); }
+  if(e.key === 'c' || e.key === 'C'){ autoSwitch = !autoSwitch; document.getElementById('toggleAuto').innerText = 'AutoSwitch: ' + (autoSwitch? 'ON':'OFF'); }
+  if(e.key === 'm' || e.key === 'M'){ toggleMute(); }
   keys[e.key] = true;
   if(e.key === ' ') e.preventDefault();
 });
-window.addEventListener('keyup', (e)=>{ keys[e.key]=false; });
+window.addEventListener('keyup', (e)=>{ keys[e.key] = false; });
 
-/* ====== Utilities ====== */
+/* ===== Helpers ===== */
 function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function distance(a,b){ return Math.hypot(a.x - b.x, a.y - b.y); }
 
-/* ====== Kick logic ====== */
+/* ===== Ball physics & goals ===== */
+function updateBall(){
+  ball.x += ball.vx; ball.y += ball.vy;
+  ball.vx *= 0.985; ball.vy *= 0.985;
+  if(ball.x - ball.r < bounds.left) { ball.x = bounds.left + ball.r; ball.vx *= -0.6; }
+  if(ball.x + ball.r > bounds.right) { ball.x = bounds.right - ball.r; ball.vx *= -0.6; }
+  if(ball.y - ball.r < bounds.top) { ball.y = bounds.top + ball.r; ball.vy *= -0.6; }
+  if(ball.y + ball.r > bounds.bottom) { ball.y = bounds.bottom - ball.r; ball.vy *= -0.6; }
+
+  // goal checks
+  if(ball.x - ball.r <= 20 && ball.y > goalTop && ball.y < goalBottom){ scoreBlue++; playCheer(); kickoff('blue'); }
+  if(ball.x + ball.r >= W-20 && ball.y > goalTop && ball.y < goalBottom){ scoreRed++; playCheer(); kickoff('red'); }
+}
+
+/* kickoff */
+function kickoff(scoredBy){
+  setTimeout(()=> alert(`Goal! ${scoredBy==='red' ? 'Red' : 'Blue'} scored.\nScore: Red ${scoreRed} - ${scoreBlue} Blue`), 30);
+  red.forEach((p,i)=>{ p.x = p.homeX; p.y = p.homeY; p.vx=0; p.vy=0; p.cooldown=0; p.sprint=0; });
+  blue.forEach((p,i)=>{ p.x = p.homeX; p.y = p.homeY; p.vx=0; p.vy=0; p.cooldown=0; p.sprint=0; });
+  ball.x = W/2; ball.y = H/2; ball.vx = (scoredBy==='red' ? -2 : 2) * (Math.random()*0.8+0.6); ball.vy = (Math.random()-0.5)*1.4;
+  playWhistle();
+}
+
+/* ===== Kicks & passes ===== */
 function doKick(player, powerFactor=1){
-  // kick toward opponent goal center with some randomization, stronger if space (powerFactor)
-  const targetX = player.team==='red' ? W - 60 : 60;
+  const targetX = player.team==='red' ? W - 70 : 70;
   const targetY = H/2 + (Math.random()-0.5)*140;
   const dx = targetX - ball.x, dy = targetY - ball.y;
-  const m = Math.hypot(dx,dy) || 1;
+  const m = Math.hypot(dx,dy)||1;
   const base = 5.8 * powerFactor;
   ball.vx = (dx/m) * base + (Math.random()-0.5)*0.6;
   ball.vy = (dy/m) * base*0.6 + (Math.random()-0.5)*0.7;
@@ -176,39 +178,54 @@ function doKick(player, powerFactor=1){
   player.cooldown = 30;
 }
 
-/* ====== Player AI (teammates & opponents) ====== */
+function passToTeammate(player){
+  // pick a teammate closer to opponent goal (forward) and not the player
+  const team = player.team === 'red' ? red : blue;
+  const candidates = team.filter(t => t !== player);
+  // prefer teammates in forward x direction
+  const forward = player.team === 'red' ? (p=>p.x > player.x) : (p=>p.x < player.x);
+  let pool = candidates.filter(forward);
+  if(pool.length === 0) pool = candidates;
+  // choose the teammate with best open distance from opponents
+  let best = pool[0], bestScore = -Infinity;
+  for(let t of pool){
+    // measure distance from nearest opponent
+    const nearestOpp = (player.team==='red' ? blue : red).reduce((acc,o)=> Math.min(acc, Math.hypot(o.x - t.x, o.y - t.y)), 1e6);
+    const score = nearestOpp - Math.abs(t.x - player.x)*0.2;
+    if(score > bestScore){ bestScore = score; best = t; }
+  }
+  // kick ball toward that teammate
+  const dx = best.x - ball.x, dy = best.y - ball.y; const m = Math.hypot(dx,dy)||1;
+  const power = 4.0;
+  ball.vx = (dx/m) * power + (Math.random()-0.5)*0.4;
+  ball.vy = (dy/m) * power*0.9 + (Math.random()-0.5)*0.4;
+  playKick();
+  player.cooldown = 22;
+}
+
+/* ===== AI behavior ===== */
 function aiStep(p, allies, foes){
-  // GK behavior
   if(p.role === 'GK'){
     const goalX = p.team==='red' ? 60 : W-60;
     const dy = H/2 - p.y;
     p.vx += (goalX - p.x) * 0.02;
     p.vy += dy * 0.03;
-    // dive if ball close
     const d = Math.hypot(p.x - ball.x, p.y - ball.y);
-    if(d < 110){
-      p.vx += (ball.x - p.x) * 0.02;
-      p.vy += (ball.y - p.y) * 0.02;
-    }
+    if(d < 110){ p.vx += (ball.x - p.x)*0.02; p.vy += (ball.y - p.y)*0.02; }
   } else {
-    // decide whether to chase ball
     const toBall = Math.hypot(p.x - ball.x, p.y - ball.y);
     let chase = false;
     if(toBall < 160) chase = true;
-    // attackers chase more
     if(p.role === 'ATT' && ((p.team==='red' && ball.x > W/2-60) || (p.team==='blue' && ball.x < W/2+60))) chase = true;
     if(chase){
-      const dx = ball.x - p.x, dy = ball.y - p.y; const m = Math.hypot(dx,dy)||1;
+      const dx = ball.x - p.x, dy = ball.y - p.y, m = Math.hypot(dx,dy)||1;
       p.vx = (dx/m) * p.speed; p.vy = (dy/m) * p.speed;
     } else {
-      // return to home position with slight wandering
       const dx = p.homeX - p.x, dy = p.homeY - p.y;
       p.vx = dx * 0.06; p.vy = dy * 0.06;
     }
-    // defenders mark opponents
     if(p.role === 'DEF'){
-      // find nearest opponent attacker
-      const attackOpp = foes.filter(f=>f.role==='ATT' || f.role==='MID');
+      const attackOpp = foes.filter(f => f.role==='ATT' || f.role==='MID');
       if(attackOpp.length){
         let nearest = attackOpp[0], md = distance(p, nearest);
         for(let o of attackOpp){ const d = distance(p,o); if(d<md){ md=d; nearest=o; } }
@@ -219,354 +236,288 @@ function aiStep(p, allies, foes){
       }
     }
   }
-
-  // apply movement
-  p.x += clamp(p.vx, -p.speed, p.speed);
-  p.y += clamp(p.vy, -p.speed, p.speed);
+  p.x += clamp(p.vx, -p.speed - (p.sprint?1.4:0), p.speed + (p.sprint?1.4:0));
+  p.y += clamp(p.vy, -p.speed - (p.sprint?1.4:0), p.speed + (p.sprint?1.4:0));
   p.x = clamp(p.x, bounds.left + p.r, bounds.right - p.r);
   p.y = clamp(p.y, bounds.top + p.r, bounds.bottom - p.r);
-
-  // leg animation update
-  const speed = Math.hypot(p.vx, p.vy);
-  if(speed > 0.2) p.legPhase += 0.4 + speed*0.08;
-  else p.legPhase *= 0.86;
-
-  // try to kick if close and cooldown finished
+  const speedNow = Math.hypot(p.vx, p.vy);
+  if(speedNow > 0.2) p.legPhase += 0.4 + speedNow*0.05; else p.legPhase *= 0.86;
   const dBall = Math.hypot(p.x - ball.x, p.y - ball.y);
   if(dBall < 18 && p.cooldown <= 0){
-    // if opponent near goal, defender clear; else kick toward opponent goal
-    const power = (p.role==='ATT')? (Math.random()*1.2 + 1.0) : (p.role==='MID' ? (Math.random()*0.9 + 0.8) : (Math.random()*0.7 + 0.6));
-    // set ball toward goal or toward teammate in good position
-    let targetX;
-    if(p.team === 'red') targetX = W - 70;
-    else targetX = 70;
-    const targetY = H/2 + (Math.random()-0.5)*120;
+    const power = (p.role==='ATT')? (Math.random()*1.2 + 1.0) : (p.role==='MID'? (Math.random()*0.9 + 0.8) : (Math.random()*0.7 + 0.6));
+    const targetX = p.team === 'red' ? W - 70 : 70; const targetY = H/2 + (Math.random()-0.5)*120;
     const ax = targetX - ball.x, ay = targetY - ball.y; const m = Math.hypot(ax,ay)||1;
-    ball.vx = (ax/m) * (4.2 * power);
-    ball.vy = (ay/m) * (3.0 * power);
-    p.cooldown = 35 + Math.floor(Math.random()*30);
-    playKick();
+    ball.vx = (ax/m) * (4.2 * power); ball.vy = (ay/m) * (3.0 * power); p.cooldown = 35 + Math.floor(Math.random()*30); playKick();
   }
   if(p.cooldown>0) p.cooldown--;
 }
 
-/* ====== Controlled player movement & switching ====== */
-function getActivePlayer(){
-  return red.findIndex(p=>p.control);
-}
-function setActive(index){
-  red.forEach((p,i)=> p.control = (i===index));
-  controlledIndex = index;
-}
-function switchToNearestTeammate(){
-  // find red teammate nearest to ball
-  let best = 0, bestd = Infinity;
-  red.forEach((p,i)=>{
-    const d = Math.hypot(p.x - ball.x, p.y - ball.y);
-    if(d < bestd){ bestd = d; best = i; }
-  });
-  setActive(best);
-}
-function maybeAutoSwitch(){
-  if(!autoSwitch) return;
-  // active becomes nearest to ball automatically (but avoid switching too often)
-  switchToNearestTeammate();
-}
-
-/* ====== Ball physics & goals ====== */
-function updateBall(){
-  // apply velocity
-  ball.x += ball.vx; ball.y += ball.vy;
-  // friction
-  ball.vx *= 0.985; ball.vy *= 0.985;
-  // bounds
-  if(ball.x - ball.r < bounds.left) { ball.x = bounds.left + ball.r; ball.vx *= -0.6; }
-  if(ball.x + ball.r > bounds.right){ ball.x = bounds.right - ball.r; ball.vx *= -0.6; }
-  if(ball.y - ball.r < bounds.top){ ball.y = bounds.top + ball.r; ball.vy *= -0.6; }
-  if(ball.y + ball.r > bounds.bottom){ ball.y = bounds.bottom - ball.r; ball.vy *= -0.6; }
-
-  // goal checks
-  if(ball.x - ball.r <= 20 && ball.y > goalTop && ball.y < goalBottom){
-    // blue scored
-    scoreBlue++;
-    playCheer(); kickOff('blue');
-  }
-  if(ball.x + ball.r >= W-20 && ball.y > goalTop && ball.y < goalBottom){
-    // red scored
-    scoreRed++;
-    playCheer(); kickOff('red');
-  }
-}
-
-/* kickoff/reset after goal */
-function kickOff(scoredBy){
-  setTimeout(()=> alert(`Goal! ${scoredBy==='red' ? 'Red' : 'Blue'} scored.\nScore: Red ${scoreRed} - ${scoreBlue} Blue`), 20);
-  // reset positions to home
-  red.forEach((p,i)=>{ p.x = p.homeX; p.y = p.homeY; p.vx=0; p.vy=0; p.cooldown=0; });
-  blue.forEach((p,i)=>{ p.x = p.homeX; p.y = p.homeY; p.vx=0; p.vy=0; p.cooldown=0; });
-  ball.x = W/2; ball.y = H/2; ball.vx = (scoredBy==='red'? -2:2)*(Math.random()*0.7+0.6); ball.vy = (Math.random()-0.5)*1.4;
-  playWhistle();
-}
-
-/* ====== Controlled player input actions ====== */
+/* ===== Controlled player update (uses joystick or keyboard) ===== */
+let joystickDir = { x:0, y:0, active:false }; // set by touch joystick
 function updateControlled(){
   const p = red[controlledIndex];
-  // movement via keys
-  let ax=0, ay=0;
-  if(keys['ArrowUp'] || keys['w'] || keys['W']) ay -= 1;
-  if(keys['ArrowDown'] || keys['s'] || keys['S']) ay += 1;
-  if(keys['ArrowLeft'] || keys['a'] || keys['A']) ax -= 1;
-  if(keys['ArrowRight'] || keys['d'] || keys['D']) ax += 1;
-  if(ax!==0 || ay!==0){
-    const m = Math.hypot(ax,ay)||1;
-    p.vx = (ax/m) * p.speed; p.vy = (ay/m) * p.speed;
-    p.x += p.vx; p.y += p.vy;
-    p.x = clamp(p.x, bounds.left + p.r, bounds.right - p.r);
-    p.y = clamp(p.y, bounds.top + p.r, bounds.bottom - p.r);
-    p.facing.x = p.vx || p.facing.x; p.facing.y = p.vy || p.facing.y;
+  if(!p) return;
+  // sprint handling decay
+  if(p.sprint > 0) { p.sprint -= 0.8; if(p.sprint < 0) p.sprint = 0; }
+  if(p.sprintCooldown > 0) p.sprintCooldown = Math.max(0, p.sprintCooldown - 1);
+
+  // movement from joystick OR keyboard
+  let ax = 0, ay = 0;
+  if(joystickDir.active){
+    ax = joystickDir.x; ay = joystickDir.y;
   } else {
-    p.vx *= 0.78; p.vy *= 0.78; p.x += p.vx; p.y += p.vy;
+    if(keys['ArrowUp'] || keys['w'] || keys['W']) ay -= 1;
+    if(keys['ArrowDown'] || keys['s'] || keys['S']) ay += 1;
+    if(keys['ArrowLeft'] || keys['a'] || keys['A']) ax -= 1;
+    if(keys['ArrowRight'] || keys['d'] || keys['D']) ax += 1;
   }
-
-  // leg animation update
-  const speedNow = Math.hypot(p.vx, p.vy);
-  if(speedNow > 0.2) p.legPhase += 0.45 + speedNow*0.04;
-  else p.legPhase *= 0.82;
-
-  // Space to kick/shoot if near ball
+  if(ax !== 0 || ay !== 0){
+    const m = Math.hypot(ax,ay)||1;
+    const spd = p.speed + (p.sprint?1.6:0);
+    p.vx = (ax/m) * spd; p.vy = (ay/m) * spd;
+  } else { p.vx *= 0.78; p.vy *= 0.78; }
+  p.x += p.vx; p.y += p.vy;
+  p.x = clamp(p.x, bounds.left + p.r, bounds.right - p.r);
+  p.y = clamp(p.y, bounds.top + p.r, bounds.bottom - p.r);
+  const spNow = Math.hypot(p.vx, p.vy);
+  if(spNow > 0.2) p.legPhase += 0.45 + spNow*0.04; else p.legPhase *= 0.82;
+  // facing vector
+  if(Math.abs(p.vx) + Math.abs(p.vy) > 0.2){ p.facing.x = p.vx; p.facing.y = p.vy; }
+  // kick (space or shoot button)
   if(keys[' ']){
     const d = Math.hypot(p.x - ball.x, p.y - ball.y);
-    if(d < 24 && p.cooldown <= 0){
-      doKick(p, 1.4); // stronger shoot
-      p.cooldown = 30;
-    }
+    if(d < 28 && p.cooldown <= 0){ doKick(p, 1.4); p.cooldown = 28; }
   }
   if(p.cooldown>0) p.cooldown--;
 }
 
-/* ====== Collision: players nudge the ball when touching ====== */
+/* ===== Collision ball/player nudges ===== */
 function playerBallCollision(){
   const all = red.concat(blue);
   for(let pl of all){
     const d = Math.hypot(pl.x - ball.x, pl.y - ball.y);
     if(d < pl.r + ball.r){
-      // gently push ball away and add player's motion
       const nx = (ball.x - pl.x) / (d || 1);
       const ny = (ball.y - pl.y) / (d || 1);
-      // position separation
       ball.x = pl.x + nx * (pl.r + ball.r + 0.5);
       ball.y = pl.y + ny * (pl.r + ball.r + 0.5);
-      // nudge
       ball.vx = ball.vx*0.3 + (pl.vx || 0)*0.9 + nx*0.6;
       ball.vy = ball.vy*0.3 + (pl.vy || 0)*0.9 + ny*0.6;
     }
   }
 }
 
-/* ====== Rendering (cartoon human with legs) ====== */
+/* ===== Rendering cartoon human with moving legs ===== */
 function drawPlayer(pl){
-  // legs: two rectangles rotating by phase
   const legSwing = Math.sin(pl.legPhase) * 8;
-  // body
-  ctx.save();
-  ctx.translate(pl.x, pl.y);
+  ctx.save(); ctx.translate(pl.x, pl.y);
   // legs
   ctx.fillStyle = '#111';
   ctx.fillRect(-4 + legSwing*0.02, 6, 6, 12);
   ctx.fillRect(4 - legSwing*0.02, 6, 6, 12);
-  // shorts
+  // shorts/jersey
   ctx.fillStyle = pl.team;
   ctx.fillRect(-8, -2, 16, 10);
   // torso
   ctx.beginPath(); ctx.ellipse(0, -14, 12, 14, 0, 0, Math.PI*2); ctx.fill();
   // head
-  ctx.fillStyle = '#f1c27d';
-  ctx.beginPath(); ctx.arc(0, -28, 8, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#f1c27d'; ctx.beginPath(); ctx.arc(0, -28, 8, 0, Math.PI*2); ctx.fill();
   // name
   ctx.fillStyle = 'white'; ctx.font = '11px Arial'; ctx.fillText(pl.name, - (pl.name.length*3), -40);
-  // highlight active player
-  if(pl.control){
-    ctx.strokeStyle = 'yellow'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.ellipse(0, -14, 18, 20, 0, 0, Math.PI*2); ctx.stroke();
-  }
+  if(pl.control){ ctx.strokeStyle = 'yellow'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(0, -14, 18, 20, 0, 0, Math.PI*2); ctx.stroke(); }
   ctx.restore();
 }
 
-/* ====== Draw pitch, players, ball, UI ====== */
+/* ===== Draw pitch & UI ===== */
 function draw(){
-  // pitch stripes
-  for(let i=0;i<12;i++){
-    ctx.fillStyle = i%2 ? '#2b8b37' : '#3aa84b';
-    ctx.fillRect(0, i*(H/12), W, H/12);
-  }
-  // lines & boxes
+  for(let i=0;i<12;i++){ ctx.fillStyle = i%2 ? '#2b8b37' : '#3aa84b'; ctx.fillRect(0, i*(H/12), W, H/12); }
   ctx.strokeStyle='white'; ctx.lineWidth=2;
   ctx.strokeRect(bounds.left, bounds.top, bounds.right - bounds.left, bounds.bottom - bounds.top);
   ctx.beginPath(); ctx.moveTo(W/2, bounds.top); ctx.lineTo(W/2, bounds.bottom); ctx.stroke();
   ctx.beginPath(); ctx.arc(W/2, H/2, 80, 0, Math.PI*2); ctx.stroke();
-  // boxes & goals
   ctx.strokeRect(bounds.left, H/2 - 140/2, 120, 140);
   ctx.strokeRect(bounds.right - 120, H/2 - 140/2, 120, 140);
-  ctx.fillStyle = 'white'; ctx.fillRect(20, H/2 - 48, 20, 96); ctx.fillRect(W-40, H/2 - 48, 20, 96);
+  ctx.fillStyle='white'; ctx.fillRect(20, H/2 - 48, 20, 96); ctx.fillRect(W-40, H/2 - 48, 20, 96);
 
-  // players (draw blue first then red so red highlights on top)
   for(let p of blue) drawPlayer(p);
   for(let p of red) drawPlayer(p);
 
-  // ball
   ctx.beginPath(); ctx.fillStyle = 'white'; ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2); ctx.fill();
   ctx.beginPath(); ctx.ellipse(ball.x, ball.y+6, 14,6,0,0,Math.PI*2); ctx.fillStyle='rgba(0,0,0,0.12)'; ctx.fill();
 
-  // UI text update
   document.getElementById('score').innerText = `Red ${scoreRed} - ${scoreBlue} Blue`;
   const mins = Math.floor(gameTime/60); const secs = gameTime%60;
   document.getElementById('msg').innerText = `Time: ${mins}:${secs<10?'0':''}${secs}`;
 }
 
-/* ====== Game main loop & timer ====== */
+/* ===== Controlled switching & autoswitch ===== */
+function setActive(index){
+  red.forEach((p,i)=> p.control = (i===index));
+  controlledIndex = index;
+}
+function switchToNearestTeammate(){
+  let best = 0, bestd = Infinity;
+  red.forEach((p,i)=>{ const d = Math.hypot(p.x - ball.x, p.y - ball.y); if(d < bestd){ bestd = d; best = i; } });
+  setActive(best);
+}
+function maybeAutoSwitch(){ if(!autoSwitch) return; switchToNearestTeammate(); }
+
+/* ===== Kick off / reset ===== */
+function resetMatch(){
+  scoreRed = 0; scoreBlue = 0; gameTime = 600; gameOver=false; halfTime=false;
+  red.forEach((p,i)=>{ p.x=p.homeX; p.y=p.homeY; p.vx=0; p.vy=0; p.cooldown=0; p.sprint=0; p.sprintCooldown=0; });
+  blue.forEach((p,i)=>{ p.x=p.homeX; p.y=p.homeY; p.vx=0; p.vy=0; p.cooldown=0; p.sprint=0; p.sprintCooldown=0; });
+  ball.x = W/2; ball.y = H/2; ball.vx = ball.vy = 0;
+  playWhistle();
+}
+document.getElementById('resetBtn').onclick = resetMatch;
+
+/* ===== Buttons: touch & mouse (pointer events) ===== */
+const joystickBase = document.getElementById('joystickBase');
+const joystickKnob = document.getElementById('joystickKnob');
+let baseRect = joystickBase.getBoundingClientRect();
+let knobCenter = { x: baseRect.left + baseRect.width/2, y: baseRect.top + baseRect.height/2 };
+let maxRadius = Math.min(baseRect.width, baseRect.height)/2 - 18;
+
+function updateBaseRect(){
+  baseRect = joystickBase.getBoundingClientRect();
+  knobCenter = { x: baseRect.left + baseRect.width/2, y: baseRect.top + baseRect.height/2 };
+  maxRadius = Math.min(baseRect.width, baseRect.height)/2 - 18;
+}
+window.addEventListener('resize', updateBaseRect);
+
+// pointer events for joystick
+let pointerId = null;
+joystickBase.addEventListener('pointerdown', (e)=>{
+  joystickBase.setPointerCapture(e.pointerId);
+  pointerId = e.pointerId;
+  joystickDir.active = true;
+  updateKnob(e.clientX, e.clientY);
+});
+joystickBase.addEventListener('pointermove', (e)=>{
+  if(pointerId !== e.pointerId) return;
+  updateKnob(e.clientX, e.clientY);
+});
+joystickBase.addEventListener('pointerup', (e)=>{
+  if(pointerId !== e.pointerId) return;
+  joystickBase.releasePointerCapture(e.pointerId);
+  pointerId = null;
+  resetKnob();
+});
+joystickBase.addEventListener('pointercancel', ()=>{ pointerId = null; resetKnob(); });
+
+function updateKnob(clientX, clientY){
+  const dx = clientX - knobCenter.x, dy = clientY - knobCenter.y;
+  const dist = Math.hypot(dx, dy);
+  const limited = Math.min(dist, maxRadius);
+  const nx = dx/dist || 0, ny = dy/dist || 0;
+  const knobX = nx * limited, knobY = ny * limited;
+  joystickKnob.style.transform = `translate(${knobX}px, ${knobY}px)`;
+  joystickDir.x = nx * (limited / maxRadius);
+  joystickDir.y = ny * (limited / maxRadius);
+}
+function resetKnob(){
+  joystickKnob.style.transform = `translate(0px, 0px)`;
+  joystickDir.x = 0; joystickDir.y = 0; joystickDir.active = false;
+}
+
+// action buttons (pointer)
+const shootBtn = document.getElementById('shootBtn'); // A
+const passBtn = document.getElementById('passBtn');   // B
+const switchBtn = document.getElementById('switchBtn'); // C
+const sprintBtn = document.getElementById('sprintBtn');
+
+function touchPressAction(action){
+  const p = red[controlledIndex];
+  if(action === 'shoot'){
+    // space behavior
+    const d = Math.hypot(p.x - ball.x, p.y - ball.y);
+    if(d < 28 && p.cooldown <= 0){ doKick(p, 1.6); p.cooldown = 28; }
+  } else if(action === 'pass'){
+    passToTeammate(p);
+  } else if(action === 'switch'){
+    switchToNearestTeammate();
+  } else if(action === 'sprintOn'){
+    if(p.sprintCooldown <= 0){ p.sprint = 6; p.sprintCooldown = 180; } // sprint amount lasts and then cooldown
+  } else if(action === 'sprintOff'){
+    // release sprint (we can let sprint decay naturally)
+  }
+}
+
+['pointerdown','pointerup','pointercancel'].forEach(ev=>{
+  shootBtn.addEventListener(ev, (e)=>{
+    e.preventDefault();
+    if(ev==='pointerdown') touchPressAction('shoot');
+  });
+  passBtn.addEventListener(ev, (e)=>{
+    e.preventDefault();
+    if(ev==='pointerdown') touchPressAction('pass');
+  });
+  switchBtn.addEventListener(ev, (e)=>{
+    e.preventDefault();
+    if(ev==='pointerdown') touchPressAction('switch');
+  });
+  sprintBtn.addEventListener('pointerdown', (e)=>{ e.preventDefault(); touchPressAction('sprintOn'); });
+  sprintBtn.addEventListener('pointerup', (e)=>{ e.preventDefault(); /* we let sprint decay */ });
+});
+
+// desktop clicks also work via pointer events above
+
+/* ===== Mute toggle ===== */
+function toggleMute(){ mute = !mute; document.getElementById('muteBtn').innerText = 'Mute: ' + (mute? 'ON':'OFF'); }
+document.getElementById('muteBtn').onclick = toggleMute;
+
+/* ===== AutoSwitch toggle ===== */
+document.getElementById('toggleAuto').onclick = ()=>{ autoSwitch = !autoSwitch; document.getElementById('toggleAuto').innerText = 'AutoSwitch: ' + (autoSwitch? 'ON':'OFF'); };
+
+/* ===== Main loop & timing ===== */
 let lastTime = performance.now(), accum = 0;
 function mainLoop(now){
-  const dt = (now - lastTime) / 16.6667; // baseline scale
-  lastTime = now;
+  const dt = (now - lastTime)/16.6667; lastTime = now;
 
-  // update AI & controlled
-  updateControlled(); // your controlled player
-  for(let i=0;i<red.length;i++){
-    if(i !== controlledIndex) aiStep(red[i], red, blue);
-  }
+  // controlled update & AI
+  updateControlled();
+  for(let i=0;i<red.length;i++){ if(i !== controlledIndex) aiStep(red[i], red, blue); }
   for(let p of blue) aiStep(p, blue, red);
-
-  // maybe auto switch
   maybeAutoSwitch();
 
   updateBall();
   playerBallCollision();
 
-  // render
+  // rendering
   ctx.clearRect(0,0,W,H);
   draw();
 
-  // timer tick logic
+  // timer tick
   accum += (now - (mainLoop.prev || now));
   if(accum >= 1000){
     accum -= 1000;
     if(!gameOver){
       gameTime--;
-      if(gameTime === 300){ // halftime at 5 minutes left
-        playWhistle();
-        alert(`⚽ Half Time! Score: Red ${scoreRed} - ${scoreBlue} Blue`);
-        // reset positions slightly then resume quickly
-        red.forEach((p,i)=>{ p.x = p.homeX; p.y = p.homeY; p.vx=0; p.vy=0; p.cooldown=0; });
-        blue.forEach((p,i)=>{ p.x = p.homeX; p.y = p.homeY; p.vx=0; p.vy=0; p.cooldown=0; });
-        // short pause not implemented (we just show alert)
-      }
-      if(gameTime <= 0){
-        gameOver = true;
-        playWhistle();
-        alert(`🏆 Full Time! Final Score: Red ${scoreRed} - ${scoreBlue} Blue`);
-      }
+      if(gameTime === 300){ playWhistle(); alert(`⚽ Half Time! Score: Red ${scoreRed} - ${scoreBlue} Blue`); red.forEach(p=>{ p.x=p.homeX; p.y=p.homeY; }); blue.forEach(p=>{ p.x=p.homeX; p.y=p.homeY; }); }
+      if(gameTime <= 0){ gameOver = true; playWhistle(); alert(`🏆 Full Time! Final Score: Red ${scoreRed} - ${scoreBlue} Blue`); }
     }
   }
   mainLoop.prev = now;
   requestAnimationFrame(mainLoop);
 }
 
-/* ====== Helper: updateControlled (wrap to avoid double-declare) ====== */
-function updateControlled(){
-  const p = red[controlledIndex];
-  if(!p) return;
-  // small drift to home if inactive? but we want full control so only move with keys
-  // Movement
-  let ax=0, ay=0;
-  if(keys['ArrowUp'] || keys['w'] || keys['W']) ay -= 1;
-  if(keys['ArrowDown'] || keys['s'] || keys['S']) ay += 1;
-  if(keys['ArrowLeft'] || keys['a'] || keys['A']) ax -= 1;
-  if(keys['ArrowRight'] || keys['d'] || keys['D']) ax += 1;
-  if(ax!==0 || ay!==0){
-    const m = Math.hypot(ax,ay)||1;
-    p.vx = (ax/m) * p.speed; p.vy = (ay/m) * p.speed;
-  } else {
-    p.vx *= 0.78; p.vy *= 0.78;
-  }
-  p.x += p.vx; p.y += p.vy;
-  p.x = clamp(p.x, bounds.left + p.r, bounds.right - p.r);
-  p.y = clamp(p.y, bounds.top + p.r, bounds.bottom - p.r);
-
-  // leg animation
-  const sp = Math.hypot(p.vx, p.vy);
-  if(sp > 0.2) p.legPhase += 0.5 + sp*0.06;
-  else p.legPhase *= 0.82;
-
-  // kick with space (short stronger kick)
-  if(keys[' ']){
-    const d = Math.hypot(p.x - ball.x, p.y - ball.y);
-    if(d < 28 && p.cooldown <= 0){
-      doKick(p, 1.4);
-      p.cooldown = 28;
-    }
-  }
-  if(p.cooldown>0) p.cooldown--;
-}
-
-/* ====== Switching controls via Tab or auto-switch ====== */
-function toggleAuto(){
-  autoSwitch = !autoSwitch;
-  document.getElementById('toggleAuto').innerText = 'AutoSwitch: ' + (autoSwitch? 'ON':'OFF');
-}
-document.getElementById('toggleAuto').onclick = ()=> toggleAuto();
-
-function switchToNearestTeammate(){
-  // manual Tab switch: cycle to teammate closest to ball
-  let best = 0, bestd = Infinity;
-  red.forEach((p,i)=>{
-    const d = Math.hypot(p.x - ball.x, p.y - ball.y);
-    if(d < bestd){ bestd = d; best = i; }
-  });
-  // assign control
-  red.forEach((p,i)=> p.control = (i===best));
-  controlledIndex = best;
-}
-
-/* ====== Kickoff & reset match controls ====== */
-function resetMatch(){
-  scoreRed = 0; scoreBlue = 0; gameTime = 600; gameOver = false;
-  red.forEach((p,i)=>{ p.x = p.homeX; p.y = p.homeY; p.vx=0; p.vy=0; p.cooldown=0; p.legPhase=0; });
-  blue.forEach((p,i)=>{ p.x = p.homeX; p.y = p.homeY; p.vx=0; p.vy=0; p.cooldown=0; p.legPhase=0; });
-  ball.x = W/2; ball.y = H/2; ball.vx = ball.vy = 0;
-  playWhistle();
-}
-document.getElementById('resetBtn').onclick = resetMatch;
-
-function toggleMute(){
-  mute = !mute;
-  document.getElementById('muteBtn').innerText = 'Mute: ' + (mute? 'ON':'OFF');
-  isMuted = mute;
-}
-document.getElementById('muteBtn').onclick = toggleMute;
-
-/* ====== Start: kickoff whistle and mainloop ====== */
+/* ===== Start match ===== */
 resetMatch();
 playWhistle();
 requestAnimationFrame(mainLoop);
 
-/* ====== Small helper: allow clicking the canvas to switch control to nearest to click ====== */
+/* ===== Small helper: clicking canvas selects nearest teammate (useful on desktop) ===== */
 c.addEventListener('click', (ev)=>{
   const rect = c.getBoundingClientRect();
   const mx = (ev.clientX - rect.left) * (W / rect.width);
   const my = (ev.clientY - rect.top) * (H / rect.height);
-  // find nearest red player to click and set control
-  let best=0, bestd=Infinity;
-  red.forEach((p,i)=>{
-    const d = Math.hypot(p.x - mx, p.y - my);
-    if(d < bestd){ bestd = d; best = i; }
-  });
+  let best = 0, bestd = Infinity;
+  red.forEach((p,i)=>{ const d = Math.hypot(p.x - mx, p.y - my); if(d < bestd){ bestd = d; best = i; } });
   setTimeout(()=>{ red.forEach((p,i)=> p.control = (i===best)); controlledIndex = best; }, 10);
 });
 
-/* Allow Tab switching via keydown Tab (already handled) */
-/* Allow toggling AutoSwitch via 'C' key noted earlier */
-
-/* end of script */
+/* ===== Done ===== */
 </script>
 </body>
 </html>

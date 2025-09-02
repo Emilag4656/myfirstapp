@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head><link rel="stylesheet" href="style.css">
+  <title>My First App</title>
+</head>
+<script src="script.js"></script>
+<button <h2>Football Score Tracker ⚽</h2>
+<p>Team A: <span id="teamA">0</span></p>
+<p>Team B: <span id="teamB">0</span></p>
+
+<button onclick="scoreA()">Add Goal to Team A</button>
+<button onclick="scoreB()">Add Goal to Team B</button>
+<button onclick="resetScore()">Reset Scores</button>
+
+<script>
+  let teamAScore = 0;
+  let teamBScore = 0;
+
+  function scoreA() {
+      teamAScore++;
+      document.getElementById("teamA").textContent = teamAScore;
+  }
+
+  function scoreB() {
+      teamBScore++;
+      document.getElementById("teamB").textContent = teamBScore;
+  }
+
+  function resetScore() {
+      teamAScore = 0;
+      teamBScore = 0;
+      document.getElementById("teamA").textContent = teamAScore;
+      document.getElementById("teamB").textContent = teamBScore;
+  }
+</script>
+<body>
+  <h1>Hello Emilag 🚀</h1>
+  <p>This is my first web app!</p>
+</body>
+</html>

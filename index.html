@@ -3,323 +3,382 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Mini Football: Penalty Stars</title>
+<title>Mini Football — Playable</title>
 <style>
-  :root{
-    --bg1:#0b3d91; --bg2:#88c057; --card:#ffffffee;
-  }
-  body{
-    margin:0; font-family:Inter, Arial, sans-serif;
-    background: linear-gradient(180deg,var(--bg1), #063060 60%, var(--bg2));
-    color:#04203a; display:flex; align-items:flex-start; justify-content:center;
-    min-height:100vh; padding:24px;
-  }
-  .wrap{
-    width:100%; max-width:1000px; display:grid; grid-template-columns: 360px 1fr; gap:20px;
-  }
-  .panel{
-    background:var(--card); border-radius:12px; padding:14px; box-shadow:0 6px 20px rgba(0,0,0,0.25);
-  }
-  h1{margin:0 0 8px 0; font-size:20px; text-align:center}
-  .players{display:flex;flex-direction:column;gap:8px}
-  .player{
-    display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;border:1px solid #eee;cursor:pointer;
-  }
-  .player img{width:44px;height:44px;border-radius:50%;background:#ddd;object-fit:cover}
-  .player .name{font-weight:700}
-  .player.selected{background:linear-gradient(90deg,#ffd54d33,#fff);border-color:#ffd54d66}
-  .controls{margin-top:12px;display:flex;flex-direction:column;gap:8px}
-  .btn{background:#0b63d9;color:white;padding:8px 10px;border-radius:8px;border:none;cursor:pointer}
-  .btn.secondary{background:#06a763}
-  .small{font-size:13px;color:#333}
-  /* Canvas area */
-  .game-area{display:flex;flex-direction:column;align-items:center;gap:8px}
-  canvas{background:linear-gradient(#74c57b,#1e8f39);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.4)}
-  .hud{display:flex;gap:10px;align-items:center;color:white}
-  .hud .score{background:rgba(0,0,0,0.35);padding:6px 10px;border-radius:8px;backdrop-filter:blur(4px)}
-  .tips{font-size:13px;color:#fff;text-align:center}
-  footer{font-size:12px;color:#062a44;text-align:center;margin-top:12px}
-  /* Responsive */
-  @media(max-width:900px){ .wrap{grid-template-columns:1fr} }
+  :root{ --bg1:#005f2f; --card:#ffffffee; --accent:#ffd54d; }
+  body{ margin:0; font-family:Arial,Helvetica,sans-serif; background: linear-gradient(#083, #024); color:#042; display:flex; align-items:center; justify-content:center; min-height:100vh; padding:18px; }
+  .container{ width:100%; max-width:1100px; display:grid; grid-template-columns: 320px 1fr; gap:18px; }
+  .panel{ background:var(--card); border-radius:12px; padding:14px; box-shadow: 0 8px 28px rgba(0,0,0,0.35); }
+  h1{ margin:4px 0 12px 0; font-size:18px; text-align:center; }
+  canvas{ display:block; width:100%; border-radius:10px; background: linear-gradient(#3aa55a,#2a8c3b); box-shadow:0 10px 30px rgba(0,0,0,0.4); }
+  .stats{ display:flex; gap:8px; justify-content:center; margin-bottom:8px; flex-wrap:wrap; }
+  .stat{ background:rgba(0,0,0,0.1); padding:6px 10px; border-radius:8px; font-weight:700; color:#042; }
+  .players{ display:flex; flex-direction:column; gap:8px; }
+  .playerItem{ padding:8px; border-radius:8px; border:1px solid #eee; display:flex; align-items:center; gap:8px; cursor:pointer; background:#fff; }
+  .playerItem.selected{ box-shadow: inset 0 -6px 20px rgba(255,213,77,0.12); border-color: #ffd54d; }
+  .controls{ margin-top:10px; display:flex; gap:8px; align-items:center; }
+  input[type="range"]{ width:100%; }
+  button{ background:#0b63d9; color:white; border:none; padding:8px 10px; border-radius:8px; cursor:pointer; }
+  footer{ font-size:12px; text-align:center; margin-top:8px; color:#024; }
+  @media(max-width:900px){ .container{ grid-template-columns:1fr } }
 </style>
 </head>
 <body>
-  <div class="wrap">
-    <!-- Left panel: options -->
+  <div class="container">
     <div class="panel">
-      <h1>Pick Your Star</h1>
-      <div class="players" id="playersList">
-        <!-- JS will populate -->
-      </div>
+      <h1>Pick Player & Controls</h1>
+      <div class="players" id="playersList"></div>
 
       <div class="controls">
-        <div class="small">Aim: Click on the field to set target. Power: Drag the mouse up/down or use slider.</div>
-        <div style="display:flex;gap:6px;align-items:center">
-          <input id="power" type="range" min="20" max="80" value="45" style="flex:1">
-          <button class="btn" id="shootBtn">Shoot</button>
+        <div style="flex:1">
+          <label>Power</label>
+          <input id="power" type="range" min="20" max="140" value="80">
         </div>
-        <button class="btn secondary" id="resetBtn">Reset Score</button>
       </div>
 
-      <hr style="margin:12px 0">
-      <div class="small">Game Mode: <strong>Penalty Stars</strong></div>
-      <div style="margin-top:8px" class="small">Controls:</div>
-      <ul class="small" style="margin:6px 0 0 18px">
-        <li>Click field to set aim</li>
-        <li>Adjust power slider</li>
-        <li>Press <strong>Shoot</strong> or press <strong>Space</strong></li>
-        <li>Try to beat the goalkeeper!</li>
-      </ul>
+      <div style="margin-top:12px" class="small">
+        <strong>How to play:</strong>
+        <ul style="margin:6px 0 0 18px">
+          <li>Move with <b>WASD</b> or <b>arrow keys</b></li>
+          <li>Press <b>Space</b> to kick in facing direction</li>
+          <li>Click/tap the field to aim & kick toward that point</li>
+        </ul>
+      </div>
 
-      <footer>Made for Emilag — share with friends ⚽</footer>
+      <div style="margin-top:12px; display:flex; gap:8px;">
+        <button id="resetBtn">Reset Game</button>
+        <button id="autoPlayBtn">Auto Goalkeeper: ON</button>
+      </div>
+
+      <footer>Built for Emilag — expand later with more players & skins</footer>
     </div>
 
-    <!-- Right panel: game -->
-    <div class="panel game-area">
-      <h1 style="color:#04203a">Mini Football — Play Now</h1>
-      <div class="hud">
-        <div class="score">Player: <span id="playerName">—</span></div>
-        <div class="score">Goals: <span id="goals">0</span></div>
-        <div class="score">Saves: <span id="saves">0</span></div>
-        <div class="score">Attempts: <span id="attempts">0</span></div>
+    <div class="panel">
+      <h1>Playable Mini Football</h1>
+      <div class="stats">
+        <div class="stat">Player: <span id="playerName">—</span></div>
+        <div class="stat">Goals: <span id="goals">0</span></div>
+        <div class="stat">Saves: <span id="saves">0</span></div>
+        <div class="stat">Attempts: <span id="attempts">0</span></div>
       </div>
-
-      <canvas id="field" width="720" height="420"></canvas>
-      <div class="tips">Aim by clicking on the field. Change power then shoot. Good luck!</div>
+      <canvas id="field" width="1000" height="560"></canvas>
     </div>
   </div>
 
 <script>
-/* ======= Game Data & Setup ======= */
-const players = [
-  {name:"Cristiano Ronaldo", shirt:"#f4d03f"},
-  {name:"Lionel Messi", shirt:"#2ecc71"},
-  {name:"Neymar Jr", shirt:"#ff6b6b"},
-  {name:"Kylian Mbappé", shirt:"#4aa3ff"},
-  {name:"Zlatan Ibrahimović", shirt:"#d1a3ff"},
-  {name:"Mohamed Salah", shirt:"#ffb86b"}
+/* ===== Game constants & canvas setup ===== */
+const cvs = document.getElementById('field');
+const ctx = cvs.getContext('2d');
+const W = cvs.width, H = cvs.height;
+
+/* Players (stars) */
+const stars = [
+  {name:"Cristiano Ronaldo", color:"#f4d03f"},
+  {name:"Lionel Messi", color:"#2ecc71"},
+  {name:"Neymar Jr", color:"#ff6b6b"},
+  {name:"Kylian Mbappé", color:"#4aa3ff"},
+  {name:"Mohamed Salah", color:"#ffb86b"}
 ];
 
-const playersList = document.getElementById('playersList');
-const canvas = document.getElementById('field');
-const ctx = canvas.getContext('2d');
-const W = canvas.width, H = canvas.height;
-const shootBtn = document.getElementById('shootBtn');
-const powerSlider = document.getElementById('power');
-const resetBtn = document.getElementById('resetBtn');
+const playersListEl = document.getElementById('playersList');
 const playerNameEl = document.getElementById('playerName');
 const goalsEl = document.getElementById('goals');
 const savesEl = document.getElementById('saves');
 const attemptsEl = document.getElementById('attempts');
+const powerSlider = document.getElementById('power');
+const resetBtn = document.getElementById('resetBtn');
+const autoPlayBtn = document.getElementById('autoPlayBtn');
 
-let selectedPlayer = players[0];
-let aim = {x: W/2, y: H/3}; // target on field
-let ball = null;
-let keeper = {x: W/2, y: 70, w: 80, h: 16, vx:0};
+let selectedStar = stars[0];
 let stats = {goals:0, saves:0, attempts:0};
+let autoKeeper = true;
 
-/* Populate player list */
-players.forEach((p, i) => {
-  const el = document.createElement('div');
-  el.className = 'player' + (i===0 ? ' selected' : '');
-  el.innerHTML = `<div style="width:44px;height:44px;border-radius:50%;background:${p.shirt};display:flex;align-items:center;justify-content:center;color:#04203a;font-weight:700">${p.name.split(' ')[0][0]}</div>
-                  <div>
-                    <div class="name">${p.name}</div>
-                    <div class="small">Star Player</div>
-                  </div>`;
-  el.onclick = () => {
-    document.querySelectorAll('.player').forEach(n=>n.classList.remove('selected'));
-    el.classList.add('selected');
-    selectedPlayer = p;
-    playerNameEl.textContent = p.name;
+/* Populate players UI */
+stars.forEach((s, i) => {
+  const div = document.createElement('div');
+  div.className = 'playerItem' + (i===0 ? ' selected' : '');
+  div.innerHTML = `<div style="width:42px;height:42px;border-radius:50%;background:${s.color};display:flex;align-items:center;justify-content:center;font-weight:700">${s.name.split(' ')[0][0]}</div>
+                   <div><div style="font-weight:700">${s.name}</div><div style="font-size:12px;color:#333">Star</div></div>`;
+  div.onclick = () => {
+    document.querySelectorAll('.playerItem').forEach(n=>n.classList.remove('selected'));
+    div.classList.add('selected'); selectedStar=s; playerNameEl.textContent=s.name;
+    resetPositions();
   };
-  playersList.appendChild(el);
+  playersListEl.appendChild(div);
 });
-playerNameEl.textContent = selectedPlayer.name;
+playerNameEl.textContent = selectedStar.name;
 
-/* ======= Draw Field ======= */
-function drawField() {
-  // green field background already in CSS; draw markings
-  ctx.clearRect(0,0,W,H);
-  // grass stripes
-  for(let i=0;i<10;i++){
-    ctx.fillStyle = i%2? '#2b8b37' : '#3aa84b';
-    ctx.fillRect(0, i*(H/10), W, H/10);
+/* ===== Game objects ===== */
+const player = {
+  x: W/2, y: H - 120, r: 16, vx:0, vy:0, speed: 3.2, color: selectedStar.color, facing:{x:0,y:-1}
+};
+const ball = { x: W/2, y: H - 180, vx:0, vy:0, r:8 };
+const goal = {
+  x: W/2, y: 40, w: 260, h: 10, lineY: 40
+};
+const keeper = { x: W/2, y: goal.y + goal.h + 10, w: 64, h: 16, vx:0 };
+
+/* Input state */
+const keys = { up:false, down:false, left:false, right:false };
+
+/* ===== Helpers ===== */
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function dist(ax,ay,bx,by){ return Math.hypot(ax-bx, ay-by); }
+
+/* ===== Game logic ===== */
+function resetPositions(){
+  player.x = W/2; player.y = H - 120; player.vx = player.vy = 0;
+  player.color = selectedStar.color;
+  ball.x = W/2; ball.y = H - 180; ball.vx = 0; ball.vy = 0;
+}
+resetPositions();
+
+resetBtn.onclick = () => {
+  stats = {goals:0, saves:0, attempts:0};
+  goalsEl.textContent = '0'; savesEl.textContent='0'; attemptsEl.textContent='0';
+  resetPositions();
+};
+autoPlayBtn.onclick = ()=> { autoKeeper = !autoKeeper; autoPlayBtn.textContent = 'Auto Goalkeeper: ' + (autoKeeper? 'ON':'OFF'); };
+
+/* Player movement & facing */
+function updatePlayer(){
+  let ax = 0, ay = 0;
+  if(keys.up) ay -= 1;
+  if(keys.down) ay += 1;
+  if(keys.left) ax -= 1;
+  if(keys.right) ax += 1;
+  if(ax !== 0 || ay !== 0){
+    // normalize
+    const m = Math.hypot(ax, ay);
+    player.vx = (ax/m) * player.speed;
+    player.vy = (ay/m) * player.speed;
+    player.facing.x = player.vx || player.facing.x;
+    player.facing.y = player.vy || player.facing.y;
+  } else {
+    // friction
+    player.vx *= 0.85; player.vy *= 0.85;
   }
-  // penalty box
-  ctx.strokeStyle = '#fff'; ctx.lineWidth=3;
-  // center circle and line
-  ctx.beginPath(); ctx.moveTo(W/2,0); ctx.lineTo(W/2,H); ctx.stroke();
+  player.x += player.vx; player.y += player.vy;
+  player.x = clamp(player.x, player.r, W - player.r);
+  player.y = clamp(player.y, H/3, H - player.r - 10); // keep player in lower field
+}
+
+/* Ball physics */
+function updateBall(){
+  // friction
+  ball.vx *= 0.995; ball.vy *= 0.995;
+  ball.x += ball.vx; ball.y += ball.vy;
+
+  // bounce off sides
+  if(ball.x < ball.r){ ball.x = ball.r; ball.vx *= -0.6; }
+  if(ball.x > W - ball.r){ ball.x = W - ball.r; ball.vx *= -0.6; }
+  if(ball.y > H - ball.r){ ball.y = H - ball.r; ball.vy *= -0.6; }
+
+  // collision with player: simple kick when near
+  const d = dist(player.x, player.y, ball.x, ball.y);
+  if(d < player.r + ball.r + 4){
+    // push ball away from player plus player's current velocity
+    const nx = (ball.x - player.x) / d || 0;
+    const ny = (ball.y - player.y) / d || 0;
+    // small nudge to separate
+    ball.x = player.x + nx * (player.r + ball.r + 1);
+    ball.y = player.y + ny * (player.r + ball.r + 1);
+    // add player's movement to ball (dribble)
+    ball.vx += player.vx * 0.6;
+    ball.vy += player.vy * 0.6;
+  }
+
+  // check goal crossing (ball enters goal area)
+  if(ball.y <= goal.lineY + 4){
+    const left = (W - goal.w)/2 + 8;
+    const right = (W + goal.w)/2 - 8;
+    if(ball.x > left && ball.x < right){
+      // check keeper save
+      const distToKeeper = Math.abs(ball.x - keeper.x);
+      if(distToKeeper < keeper.w/2 + 6 && ball.y <= keeper.y + 6){
+        // saved by keeper
+        stats.saves++; savesEl.textContent = stats.saves;
+        // reflect ball back
+        ball.vy = Math.abs(ball.vy) * 0.6;
+        ball.vx += (ball.x - keeper.x)*0.02;
+      } else {
+        // scored
+        stats.goals++; goalsEl.textContent = stats.goals;
+        // reset ball and player
+        resetPositions();
+      }
+    } else {
+      // hit woodwork/outside
+      ball.vy = Math.abs(ball.vy) * 0.6;
+    }
+  }
+
+  // remove very small motions
+  if(Math.hypot(ball.vx, ball.vy) < 0.02){ ball.vx = 0; ball.vy = 0; }
+}
+
+/* Keeper simple AI */
+function updateKeeper(){
+  if(autoKeeper){
+    // move towards ball x slowly
+    const targetX = clamp(ball.x, keeper.w/2 + 20, W - keeper.w/2 - 20);
+    keeper.vx += (targetX - keeper.x) * 0.02;
+    keeper.vx *= 0.88;
+    keeper.x += keeper.vx;
+  } else {
+    // idle small motion
+    keeper.vx *= 0.92; keeper.x += keeper.vx;
+  }
+  // clamp
+  keeper.x = clamp(keeper.x, keeper.w/2, W - keeper.w/2);
+}
+
+/* Player kick action (Space or click-based) */
+function playerKickTowards(tx, ty){
+  // only kick if ball is close
+  const d = dist(player.x, player.y, ball.x, ball.y);
+  if(d < 80){
+    const power = parseInt(powerSlider.value, 10) / 12;
+    const angle = Math.atan2(ty - ball.y, tx - ball.x);
+    ball.vx = Math.cos(angle) * power + player.vx*0.6;
+    ball.vy = Math.sin(angle) * power + player.vy*0.6;
+    stats.attempts++; attemptsEl.textContent = stats.attempts;
+  } else {
+    // if far, a space kick is a "shoot in facing dir" only if ball is near
+  }
+}
+
+/* Shoot in facing direction (Space) when near ball */
+function shootInFacing(){
+  const d = dist(player.x, player.y, ball.x, ball.y);
+  if(d < 80){
+    const p = parseInt(powerSlider.value, 10) / 12;
+    // facing vector
+    const fx = player.facing.x || 0; const fy = player.facing.y || -1;
+    const m = Math.hypot(fx, fy) || 1;
+    ball.vx = (fx/m) * p + player.vx*0.6;
+    ball.vy = (fy/m) * p + player.vy*0.6;
+    stats.attempts++; attemptsEl.textContent = stats.attempts;
+  }
+}
+
+/* ===== Render ===== */
+function drawField(){
+  // draw grass stripes
+  for(let i=0;i<12;i++){
+    ctx.fillStyle = i%2? '#2b8b37' : '#3aa84b';
+    ctx.fillRect(0, i*(H/12), W, H/12);
+  }
+  // midline and circle
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(W/2, 0); ctx.lineTo(W/2, H); ctx.stroke();
   ctx.beginPath(); ctx.arc(W/2, H/2, 60, 0, Math.PI*2); ctx.stroke();
 
-  // goal area (top)
-  const goalW = 220; const goalY = 10;
-  ctx.strokeRect((W-goalW)/2, goalY, goalW, 60);
+  // goal
+  const gx = (W - goal.w)/2;
+  ctx.fillStyle = '#fff'; ctx.fillRect(gx, goal.y, goal.w, goal.h);
   // penalty spot
-  ctx.beginPath(); ctx.fillStyle='#fff'; ctx.arc(W/2, 110, 4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(W/2, goal.y+70, 4, 0, Math.PI*2); ctx.fill();
+}
 
-  // draw keeper
-  drawKeeper();
+/* draw player, ball, keeper */
+function drawObjects(){
+  // keeper
+  ctx.fillStyle = '#111';
+  ctx.fillRect(keeper.x - keeper.w/2, keeper.y - keeper.h/2, keeper.w, keeper.h);
+  ctx.beginPath(); ctx.fillStyle = '#f1c27d'; ctx.arc(keeper.x, keeper.y - 18, 12, 0, Math.PI*2); ctx.fill();
 
-  // draw aim marker
-  ctx.beginPath(); ctx.strokeStyle='rgba(255,255,255,0.9)'; ctx.lineWidth=2;
-  ctx.moveTo(aim.x-12, aim.y); ctx.lineTo(aim.x+12, aim.y);
-  ctx.moveTo(aim.x, aim.y-12); ctx.lineTo(aim.x, aim.y+12);
+  // ball
+  ctx.beginPath(); ctx.fillStyle = '#fff'; ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.fillStyle='rgba(0,0,0,0.12)'; ctx.ellipse(ball.x, ball.y+12, 14,6,0,0,Math.PI*2); ctx.fill();
+
+  // player
+  ctx.beginPath(); ctx.fillStyle = selectedStar.color; ctx.arc(player.x, player.y, player.r, 0, Math.PI*2); ctx.fill();
+  // player head/shading
+  ctx.beginPath(); ctx.fillStyle = '#ffe6b3'; ctx.arc(player.x, player.y-8, 8, 0, Math.PI*2); ctx.fill();
+  // facing arrow
+  ctx.strokeStyle = '#042'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(player.x, player.y);
+  ctx.lineTo(player.x + player.facing.x*26, player.y + player.facing.y*26);
   ctx.stroke();
 }
 
-/* ======= Draw Keeper & Ball ======= */
-function drawKeeper() {
-  // keeper body
-  ctx.fillStyle = '#111';
-  ctx.fillRect(keeper.x - keeper.w/2, keeper.y - keeper.h/2, keeper.w, keeper.h);
-  // head
-  ctx.beginPath(); ctx.fillStyle='#f1c27d';
-  ctx.arc(keeper.x, keeper.y - 18, 12, 0, Math.PI*2); ctx.fill();
-}
+/* ===== Main loop ===== */
+function loop(){
+  updatePlayer();
+  updateKeeper();
+  updateBall();
 
-function drawBall(b) {
-  if(!b) return;
-  ctx.beginPath(); ctx.fillStyle = '#ffffff'; ctx.arc(b.x, b.y, 8, 0, Math.PI*2); ctx.fill();
-  // small shadow
-  ctx.beginPath(); ctx.fillStyle='rgba(0,0,0,0.15)';
-  ctx.ellipse(b.x, b.y+12, 12, 5, 0, 0, Math.PI*2); ctx.fill();
-}
-
-/* ======= Shooting & Physics ======= */
-function startShot(power, targetX, targetY) {
-  if(ball) return; // prevent multiple shots
-  const startX = W/2; const startY = H - 40;
-  // direction vector
-  const dx = targetX - startX, dy = targetY - startY;
-  const ang = Math.atan2(dy, dx);
-  const speed = power / 12; // tuned
-  ball = {
-    x: startX, y: startY, vx: Math.cos(ang)*speed, vy: Math.sin(ang)*speed,
-    traveled:0, maxTravel: 200 + power*2
-  };
-  stats.attempts++;
-  attemptsEl.textContent = stats.attempts;
-  // goalkeeper reaction: move toward predicted shot area with some randomness
-  const predictedX = Math.max(keeper.w/2, Math.min(W-keeper.w/2, targetX + (Math.random()-0.5)*80));
-  keeper.vx = (predictedX - keeper.x) * 0.12; // speed factor
-}
-
-/* ======= Game Loop ======= */
-function update(dt) {
-  // update keeper
-  keeper.x += keeper.vx;
-  // damping
-  keeper.vx *= 0.92;
-  if(keeper.x < keeper.w/2) keeper.x = keeper.w/2;
-  if(keeper.x > W - keeper.w/2) keeper.x = W - keeper.w/2;
-
-  // update ball
-  if(ball){
-    ball.x += ball.vx;
-    ball.y += ball.vy;
-    // friction / curve
-    ball.vx *= 0.998; ball.vy *= 0.998;
-    ball.traveled += Math.hypot(ball.vx, ball.vy);
-
-    // Check collision with keeper (simple rectangle vs circle)
-    const ky = keeper.y - keeper.h/2;
-    if(ball.y < keeper.y + 12 && ball.y > keeper.y - 30){
-      const distX = Math.abs(ball.x - keeper.x);
-      if(distX < keeper.w/2 + 6){
-        // saved!
-        stats.saves++;
-        savesEl.textContent = stats.saves;
-        // play save animation - reflect ball
-        ball.vx *= -0.6; ball.vy = Math.abs(ball.vy)*0.5;
-        // small bounce away
-        keeper.vx += (ball.x - keeper.x)*0.01;
-      }
-    }
-
-    // goal check: if ball crosses goal line (y < goalY + 60) and is inside goal width
-    if(ball.y <= 10 + 60){
-      const goalLeft = (W-220)/2 + 6;
-      const goalRight = (W+220)/2 - 6;
-      if(ball.x > goalLeft && ball.x < goalRight && Math.abs(ball.y - (10+30)) < 80){
-        // scored
-        stats.goals++;
-        goalsEl.textContent = stats.goals;
-        ball = null;
-        return;
-      } else {
-        // hit crossbar or outside -> saved/out
-        ball = null;
-        return;
-      }
-    }
-
-    // if ball slows/stops or goes out of bounds, remove it
-    if(Math.hypot(ball.vx, ball.vy) < 0.05 || ball.traveled > ball.maxTravel || ball.x<0 || ball.x>W || ball.y>H){
-      ball = null;
-      return;
-    }
-  }
-}
-
-/* ======= Render Loop ======= */
-function frame(){
+  // draw
+  ctx.clearRect(0,0,W,H);
   drawField();
-  drawBall(ball);
-  requestAnimationFrame(frame);
+  drawObjects();
+
+  requestAnimationFrame(loop);
 }
-requestAnimationFrame(frame);
+requestAnimationFrame(loop);
 
-/* ======= Interval Update ======= */
-setInterval(()=> update(0.016), 16);
-
-/* ======= Input Handling ======= */
-canvas.addEventListener('click', (e)=>{
-  const rect = canvas.getBoundingClientRect();
-  aim.x = e.clientX - rect.left;
-  aim.y = e.clientY - rect.top;
+/* ===== Input handling ===== */
+window.addEventListener('keydown', (e)=>{
+  if(e.key === 'ArrowUp' || e.key === 'w') keys.up = true;
+  if(e.key === 'ArrowDown' || e.key === 's') keys.down = true;
+  if(e.key === 'ArrowLeft' || e.key === 'a') keys.left = true;
+  if(e.key === 'ArrowRight' || e.key === 'd') keys.right = true;
+  if(e.code === 'Space'){ e.preventDefault(); shootInFacing(); }
+});
+window.addEventListener('keyup', (e)=>{
+  if(e.key === 'ArrowUp' || e.key === 'w') keys.up = false;
+  if(e.key === 'ArrowDown' || e.key === 's') keys.down = false;
+  if(e.key === 'ArrowLeft' || e.key === 'a') keys.left = false;
+  if(e.key === 'ArrowRight' || e.key === 'd') keys.right = false;
 });
 
-shootBtn.onclick = () => {
-  const p = parseInt(powerSlider.value,10);
-  startShot(p, aim.x, aim.y);
-};
+/* Click/tap to aim & kick */
+cvs.addEventListener('click', (ev)=>{
+  const rect = cvs.getBoundingClientRect();
+  const mx = (ev.clientX - rect.left) * (W / rect.width);
+  const my = (ev.clientY - rect.top) * (H / rect.height);
+  playerKickTowards(mx, my);
+});
 
-window.addEventListener('keydown', (e)=>{
-  if(e.code === 'Space') {
-    e.preventDefault();
-    shootBtn.click();
+/* Touch support: tap to kick, touchmove to move player */
+let touchMoving = false;
+cvs.addEventListener('touchstart', (ev)=>{
+  ev.preventDefault();
+  const t = ev.touches[0];
+  const rect = cvs.getBoundingClientRect();
+  const mx = (t.clientX - rect.left) * (W / rect.width);
+  const my = (t.clientY - rect.top) * (H / rect.height);
+  // if touch near player, start dragging player
+  if(dist(mx,my, player.x, player.y) < 60){
+    touchMoving = true;
+  } else {
+    playerKickTowards(mx, my);
   }
 });
-
-/* reset */
-resetBtn.onclick = () => {
-  stats = {goals:0,saves:0,attempts:0};
-  goalsEl.textContent = '0'; savesEl.textContent='0'; attemptsEl.textContent='0';
-};
-
-/* initial draw */
-drawField();
-
-/* small touch: on mousemove, change keeper idle behavior */
-canvas.addEventListener('mousemove', (e)=>{
-  // subtle idle shift so keeper looks alive
-  const rect = canvas.getBoundingClientRect();
-  const mx = e.clientX - rect.left;
-  keeper.vx += (mx - keeper.x)*0.0008;
+cvs.addEventListener('touchmove', (ev)=>{
+  if(!touchMoving) return;
+  const t = ev.touches[0];
+  const rect = cvs.getBoundingClientRect();
+  const mx = (t.clientX - rect.left) * (W / rect.width);
+  const my = (t.clientY - rect.top) * (H / rect.height);
+  player.x = clamp(mx, player.r, W - player.r);
+  player.y = clamp(my, H/3, H - player.r - 10);
 });
+cvs.addEventListener('touchend', ()=> { touchMoving = false; });
 
-/* Make canvas scale nicely on mobile */
-function resizeCanvas(){
-  const maxW = Math.min(window.innerWidth - 60, 900);
+/* resize for visual scale on small screens */
+function adaptCanvas(){
+  const maxW = Math.min(window.innerWidth - 40, 1000);
   const ratio = W / H;
-  const newW = Math.min(maxW, 900);
-  const newH = newW / ratio;
-  canvas.style.width = newW + 'px';
-  canvas.style.height = newH + 'px';
+  const newW = maxW;
+  const newH = Math.round(newW / ratio);
+  cvs.style.width = newW + 'px';
+  cvs.style.height = newH + 'px';
 }
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
+window.addEventListener('resize', adaptCanvas);
+adaptCanvas();
 </script>
 </body>
 </html>

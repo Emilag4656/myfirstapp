@@ -1,144 +1,325 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Football League</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: linear-gradient(to bottom, #00416a, #e4e5e6);
-      text-align: center;
-      padding: 20px;
-      color: white;
-    }
-    h1 {
-      margin-bottom: 20px;
-      font-size: 2rem;
-    }
-    table {
-      margin: 20px auto;
-      border-collapse: collapse;
-      width: 90%;
-      max-width: 800px;
-      background: white;
-      color: black;
-      border-radius: 10px;
-      overflow: hidden;
-      box-shadow: 0 0 10px rgba(0,0,0,0.5);
-    }
-    th, td {
-      border: 1px solid #ddd;
-      padding: 10px;
-      text-align: center;
-    }
-    th {
-      background: #00416a;
-      color: white;
-    }
-    button {
-      background: #28a745;
-      border: none;
-      padding: 10px 15px;
-      margin: 5px;
-      border-radius: 8px;
-      color: white;
-      cursor: pointer;
-      font-size: 1rem;
-    }
-    button:hover {
-      background: #218838;
-    }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Mini Football: Penalty Stars</title>
+<style>
+  :root{
+    --bg1:#0b3d91; --bg2:#88c057; --card:#ffffffee;
+  }
+  body{
+    margin:0; font-family:Inter, Arial, sans-serif;
+    background: linear-gradient(180deg,var(--bg1), #063060 60%, var(--bg2));
+    color:#04203a; display:flex; align-items:flex-start; justify-content:center;
+    min-height:100vh; padding:24px;
+  }
+  .wrap{
+    width:100%; max-width:1000px; display:grid; grid-template-columns: 360px 1fr; gap:20px;
+  }
+  .panel{
+    background:var(--card); border-radius:12px; padding:14px; box-shadow:0 6px 20px rgba(0,0,0,0.25);
+  }
+  h1{margin:0 0 8px 0; font-size:20px; text-align:center}
+  .players{display:flex;flex-direction:column;gap:8px}
+  .player{
+    display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;border:1px solid #eee;cursor:pointer;
+  }
+  .player img{width:44px;height:44px;border-radius:50%;background:#ddd;object-fit:cover}
+  .player .name{font-weight:700}
+  .player.selected{background:linear-gradient(90deg,#ffd54d33,#fff);border-color:#ffd54d66}
+  .controls{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+  .btn{background:#0b63d9;color:white;padding:8px 10px;border-radius:8px;border:none;cursor:pointer}
+  .btn.secondary{background:#06a763}
+  .small{font-size:13px;color:#333}
+  /* Canvas area */
+  .game-area{display:flex;flex-direction:column;align-items:center;gap:8px}
+  canvas{background:linear-gradient(#74c57b,#1e8f39);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.4)}
+  .hud{display:flex;gap:10px;align-items:center;color:white}
+  .hud .score{background:rgba(0,0,0,0.35);padding:6px 10px;border-radius:8px;backdrop-filter:blur(4px)}
+  .tips{font-size:13px;color:#fff;text-align:center}
+  footer{font-size:12px;color:#062a44;text-align:center;margin-top:12px}
+  /* Responsive */
+  @media(max-width:900px){ .wrap{grid-template-columns:1fr} }
+</style>
 </head>
 <body>
-  <h1>⚽ Football League Simulator ⚽</h1>
+  <div class="wrap">
+    <!-- Left panel: options -->
+    <div class="panel">
+      <h1>Pick Your Star</h1>
+      <div class="players" id="playersList">
+        <!-- JS will populate -->
+      </div>
 
-  <button onclick="playRound()">Play Round</button>
-  <button onclick="resetLeague()">Reset League</button>
+      <div class="controls">
+        <div class="small">Aim: Click on the field to set target. Power: Drag the mouse up/down or use slider.</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input id="power" type="range" min="20" max="80" value="45" style="flex:1">
+          <button class="btn" id="shootBtn">Shoot</button>
+        </div>
+        <button class="btn secondary" id="resetBtn">Reset Score</button>
+      </div>
 
-  <table id="leagueTable">
-    <thead>
-      <tr>
-        <th>Team</th>
-        <th>Played</th>
-        <th>Won</th>
-        <th>Draw</th>
-        <th>Lost</th>
-        <th>GF</th>
-        <th>GA</th>
-        <th>Points</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+      <hr style="margin:12px 0">
+      <div class="small">Game Mode: <strong>Penalty Stars</strong></div>
+      <div style="margin-top:8px" class="small">Controls:</div>
+      <ul class="small" style="margin:6px 0 0 18px">
+        <li>Click field to set aim</li>
+        <li>Adjust power slider</li>
+        <li>Press <strong>Shoot</strong> or press <strong>Space</strong></li>
+        <li>Try to beat the goalkeeper!</li>
+      </ul>
 
-  <script>
-    // League Teams
-    const teams = [
-      { name: "Barcelona", played: 0, won: 0, draw: 0, lost: 0, gf: 0, ga: 0, points: 0 },
-      { name: "Chelsea", played: 0, won: 0, draw: 0, lost: 0, gf: 0, ga: 0, points: 0 },
-      { name: "Real Madrid", played: 0, won: 0, draw: 0, lost: 0, gf: 0, ga: 0, points: 0 },
-      { name: "Arsenal", played: 0, won: 0, draw: 0, lost: 0, gf: 0, ga: 0, points: 0 }
-    ];
+      <footer>Made for Emilag — share with friends ⚽</footer>
+    </div>
 
-    function updateTable() {
-      const tbody = document.querySelector("#leagueTable tbody");
-      tbody.innerHTML = "";
-      teams.sort((a, b) => b.points - a.points || (b.gf - b.ga) - (a.gf - a.ga));
-      teams.forEach(team => {
-        tbody.innerHTML += `
-          <tr>
-            <td>${team.name}</td>
-            <td>${team.played}</td>
-            <td>${team.won}</td>
-            <td>${team.draw}</td>
-            <td>${team.lost}</td>
-            <td>${team.gf}</td>
-            <td>${team.ga}</td>
-            <td>${team.points}</td>
-          </tr>
-        `;
-      });
+    <!-- Right panel: game -->
+    <div class="panel game-area">
+      <h1 style="color:#04203a">Mini Football — Play Now</h1>
+      <div class="hud">
+        <div class="score">Player: <span id="playerName">—</span></div>
+        <div class="score">Goals: <span id="goals">0</span></div>
+        <div class="score">Saves: <span id="saves">0</span></div>
+        <div class="score">Attempts: <span id="attempts">0</span></div>
+      </div>
+
+      <canvas id="field" width="720" height="420"></canvas>
+      <div class="tips">Aim by clicking on the field. Change power then shoot. Good luck!</div>
+    </div>
+  </div>
+
+<script>
+/* ======= Game Data & Setup ======= */
+const players = [
+  {name:"Cristiano Ronaldo", shirt:"#f4d03f"},
+  {name:"Lionel Messi", shirt:"#2ecc71"},
+  {name:"Neymar Jr", shirt:"#ff6b6b"},
+  {name:"Kylian Mbappé", shirt:"#4aa3ff"},
+  {name:"Zlatan Ibrahimović", shirt:"#d1a3ff"},
+  {name:"Mohamed Salah", shirt:"#ffb86b"}
+];
+
+const playersList = document.getElementById('playersList');
+const canvas = document.getElementById('field');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const shootBtn = document.getElementById('shootBtn');
+const powerSlider = document.getElementById('power');
+const resetBtn = document.getElementById('resetBtn');
+const playerNameEl = document.getElementById('playerName');
+const goalsEl = document.getElementById('goals');
+const savesEl = document.getElementById('saves');
+const attemptsEl = document.getElementById('attempts');
+
+let selectedPlayer = players[0];
+let aim = {x: W/2, y: H/3}; // target on field
+let ball = null;
+let keeper = {x: W/2, y: 70, w: 80, h: 16, vx:0};
+let stats = {goals:0, saves:0, attempts:0};
+
+/* Populate player list */
+players.forEach((p, i) => {
+  const el = document.createElement('div');
+  el.className = 'player' + (i===0 ? ' selected' : '');
+  el.innerHTML = `<div style="width:44px;height:44px;border-radius:50%;background:${p.shirt};display:flex;align-items:center;justify-content:center;color:#04203a;font-weight:700">${p.name.split(' ')[0][0]}</div>
+                  <div>
+                    <div class="name">${p.name}</div>
+                    <div class="small">Star Player</div>
+                  </div>`;
+  el.onclick = () => {
+    document.querySelectorAll('.player').forEach(n=>n.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedPlayer = p;
+    playerNameEl.textContent = p.name;
+  };
+  playersList.appendChild(el);
+});
+playerNameEl.textContent = selectedPlayer.name;
+
+/* ======= Draw Field ======= */
+function drawField() {
+  // green field background already in CSS; draw markings
+  ctx.clearRect(0,0,W,H);
+  // grass stripes
+  for(let i=0;i<10;i++){
+    ctx.fillStyle = i%2? '#2b8b37' : '#3aa84b';
+    ctx.fillRect(0, i*(H/10), W, H/10);
+  }
+  // penalty box
+  ctx.strokeStyle = '#fff'; ctx.lineWidth=3;
+  // center circle and line
+  ctx.beginPath(); ctx.moveTo(W/2,0); ctx.lineTo(W/2,H); ctx.stroke();
+  ctx.beginPath(); ctx.arc(W/2, H/2, 60, 0, Math.PI*2); ctx.stroke();
+
+  // goal area (top)
+  const goalW = 220; const goalY = 10;
+  ctx.strokeRect((W-goalW)/2, goalY, goalW, 60);
+  // penalty spot
+  ctx.beginPath(); ctx.fillStyle='#fff'; ctx.arc(W/2, 110, 4, 0, Math.PI*2); ctx.fill();
+
+  // draw keeper
+  drawKeeper();
+
+  // draw aim marker
+  ctx.beginPath(); ctx.strokeStyle='rgba(255,255,255,0.9)'; ctx.lineWidth=2;
+  ctx.moveTo(aim.x-12, aim.y); ctx.lineTo(aim.x+12, aim.y);
+  ctx.moveTo(aim.x, aim.y-12); ctx.lineTo(aim.x, aim.y+12);
+  ctx.stroke();
+}
+
+/* ======= Draw Keeper & Ball ======= */
+function drawKeeper() {
+  // keeper body
+  ctx.fillStyle = '#111';
+  ctx.fillRect(keeper.x - keeper.w/2, keeper.y - keeper.h/2, keeper.w, keeper.h);
+  // head
+  ctx.beginPath(); ctx.fillStyle='#f1c27d';
+  ctx.arc(keeper.x, keeper.y - 18, 12, 0, Math.PI*2); ctx.fill();
+}
+
+function drawBall(b) {
+  if(!b) return;
+  ctx.beginPath(); ctx.fillStyle = '#ffffff'; ctx.arc(b.x, b.y, 8, 0, Math.PI*2); ctx.fill();
+  // small shadow
+  ctx.beginPath(); ctx.fillStyle='rgba(0,0,0,0.15)';
+  ctx.ellipse(b.x, b.y+12, 12, 5, 0, 0, Math.PI*2); ctx.fill();
+}
+
+/* ======= Shooting & Physics ======= */
+function startShot(power, targetX, targetY) {
+  if(ball) return; // prevent multiple shots
+  const startX = W/2; const startY = H - 40;
+  // direction vector
+  const dx = targetX - startX, dy = targetY - startY;
+  const ang = Math.atan2(dy, dx);
+  const speed = power / 12; // tuned
+  ball = {
+    x: startX, y: startY, vx: Math.cos(ang)*speed, vy: Math.sin(ang)*speed,
+    traveled:0, maxTravel: 200 + power*2
+  };
+  stats.attempts++;
+  attemptsEl.textContent = stats.attempts;
+  // goalkeeper reaction: move toward predicted shot area with some randomness
+  const predictedX = Math.max(keeper.w/2, Math.min(W-keeper.w/2, targetX + (Math.random()-0.5)*80));
+  keeper.vx = (predictedX - keeper.x) * 0.12; // speed factor
+}
+
+/* ======= Game Loop ======= */
+function update(dt) {
+  // update keeper
+  keeper.x += keeper.vx;
+  // damping
+  keeper.vx *= 0.92;
+  if(keeper.x < keeper.w/2) keeper.x = keeper.w/2;
+  if(keeper.x > W - keeper.w/2) keeper.x = W - keeper.w/2;
+
+  // update ball
+  if(ball){
+    ball.x += ball.vx;
+    ball.y += ball.vy;
+    // friction / curve
+    ball.vx *= 0.998; ball.vy *= 0.998;
+    ball.traveled += Math.hypot(ball.vx, ball.vy);
+
+    // Check collision with keeper (simple rectangle vs circle)
+    const ky = keeper.y - keeper.h/2;
+    if(ball.y < keeper.y + 12 && ball.y > keeper.y - 30){
+      const distX = Math.abs(ball.x - keeper.x);
+      if(distX < keeper.w/2 + 6){
+        // saved!
+        stats.saves++;
+        savesEl.textContent = stats.saves;
+        // play save animation - reflect ball
+        ball.vx *= -0.6; ball.vy = Math.abs(ball.vy)*0.5;
+        // small bounce away
+        keeper.vx += (ball.x - keeper.x)*0.01;
+      }
     }
 
-    function playMatch(teamA, teamB) {
-      let goalsA = Math.floor(Math.random() * 5);
-      let goalsB = Math.floor(Math.random() * 5);
-
-      teamA.played++; teamB.played++;
-      teamA.gf += goalsA; teamA.ga += goalsB;
-      teamB.gf += goalsB; teamB.ga += goalsA;
-
-      if (goalsA > goalsB) {
-        teamA.won++; teamA.points += 3;
-        teamB.lost++;
-      } else if (goalsA < goalsB) {
-        teamB.won++; teamB.points += 3;
-        teamA.lost++;
+    // goal check: if ball crosses goal line (y < goalY + 60) and is inside goal width
+    if(ball.y <= 10 + 60){
+      const goalLeft = (W-220)/2 + 6;
+      const goalRight = (W+220)/2 - 6;
+      if(ball.x > goalLeft && ball.x < goalRight && Math.abs(ball.y - (10+30)) < 80){
+        // scored
+        stats.goals++;
+        goalsEl.textContent = stats.goals;
+        ball = null;
+        return;
       } else {
-        teamA.draw++; teamB.draw++;
-        teamA.points++; teamB.points++;
+        // hit crossbar or outside -> saved/out
+        ball = null;
+        return;
       }
     }
 
-    function playRound() {
-      for (let i = 0; i < teams.length; i++) {
-        for (let j = i + 1; j < teams.length; j++) {
-          playMatch(teams[i], teams[j]);
-        }
-      }
-      updateTable();
+    // if ball slows/stops or goes out of bounds, remove it
+    if(Math.hypot(ball.vx, ball.vy) < 0.05 || ball.traveled > ball.maxTravel || ball.x<0 || ball.x>W || ball.y>H){
+      ball = null;
+      return;
     }
+  }
+}
 
-    function resetLeague() {
-      teams.forEach(t => {
-        t.played = t.won = t.draw = t.lost = t.gf = t.ga = t.points = 0;
-      });
-      updateTable();
-    }
+/* ======= Render Loop ======= */
+function frame(){
+  drawField();
+  drawBall(ball);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
 
-    updateTable();
-  </script>
+/* ======= Interval Update ======= */
+setInterval(()=> update(0.016), 16);
+
+/* ======= Input Handling ======= */
+canvas.addEventListener('click', (e)=>{
+  const rect = canvas.getBoundingClientRect();
+  aim.x = e.clientX - rect.left;
+  aim.y = e.clientY - rect.top;
+});
+
+shootBtn.onclick = () => {
+  const p = parseInt(powerSlider.value,10);
+  startShot(p, aim.x, aim.y);
+};
+
+window.addEventListener('keydown', (e)=>{
+  if(e.code === 'Space') {
+    e.preventDefault();
+    shootBtn.click();
+  }
+});
+
+/* reset */
+resetBtn.onclick = () => {
+  stats = {goals:0,saves:0,attempts:0};
+  goalsEl.textContent = '0'; savesEl.textContent='0'; attemptsEl.textContent='0';
+};
+
+/* initial draw */
+drawField();
+
+/* small touch: on mousemove, change keeper idle behavior */
+canvas.addEventListener('mousemove', (e)=>{
+  // subtle idle shift so keeper looks alive
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  keeper.vx += (mx - keeper.x)*0.0008;
+});
+
+/* Make canvas scale nicely on mobile */
+function resizeCanvas(){
+  const maxW = Math.min(window.innerWidth - 60, 900);
+  const ratio = W / H;
+  const newW = Math.min(maxW, 900);
+  const newH = newW / ratio;
+  canvas.style.width = newW + 'px';
+  canvas.style.height = newH + 'px';
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+</script>
 </body>
 </html>

@@ -1,107 +1,438 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Mini Soccer Game</title>
-  <style>
-    body { margin: 0; background: green; color: white; font-family: Arial, sans-serif; text-align: center; }
-    canvas { background: #006400; display: block; margin: 20px auto; border: 2px solid white; }
-    #menu { margin-top: 50px; }
-    button {
-      display: block;
-      margin: 10px auto;
-      padding: 10px 20px;
-      font-size: 18px;
-      border-radius: 8px;
-      border: none;
-      cursor: pointer;
-    }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Emilag 11v11 — Playable Match (AI)</title>
+<style>
+  :root{ --bg: #064; --pitch1:#3aa84b; --pitch2:#2b8b37; }
+  body{ margin:0; font-family: Arial, Helvetica, sans-serif; background:#052; color:#fff; display:flex; flex-direction:column; align-items:center; padding:12px; }
+  #header{ width:100%; max-width:1080px; display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:6px; }
+  #score { font-size:20px; }
+  #message { font-size:14px; color:#ffd; }
+  canvas{ background:linear-gradient(180deg,var(--pitch1),var(--pitch2)); border:6px solid #074; border-radius:8px; max-width:100%; height:auto; box-shadow:0 10px 30px rgba(0,0,0,0.6); }
+  .controls{ display:flex; gap:8px; align-items:center; }
+  button{ padding:6px 10px; border-radius:6px; border:none; cursor:pointer; background:#0b63d9; color:white; }
+  @media(max-width:900px){ #header{flex-direction:column; gap:6px} }
+</style>
 </head>
 <body>
-  <h1>⚽ Mini Soccer Game</h1>
-  <div id="menu">
-    <button onclick="startGame()">1. Start Game</button>
-    <button onclick="showInstructions()">2. Instructions</button>
-    <button onclick="exitGame()">3. Exit</button>
+  <div id="header">
+    <div id="score">Red 0 - 0 Blue</div>
+    <div id="message">Time: 10:00</div>
+    <div class="controls">
+      <button id="resetBtn">Reset Match</button>
+      <button id="toggleAuto">Auto Keeper: ON</button>
+    </div>
   </div>
-  <canvas id="gameCanvas" width="800" height="500" style="display:none;"></canvas>
 
-  <script>
-    let canvas = document.getElementById("gameCanvas");
-    let ctx = canvas.getContext("2d");
+  <canvas id="c" width="1000" height="620"></canvas>
 
-    let player = { x: 100, y: 200, radius: 20, color: "blue" };
-    let ball = { x: 200, y: 200, radius: 10, color: "white", dx: 0, dy: 0 };
-    let keys = {};
+<script>
+/* =========================
+   Emilag 11v11 — Simple AI
+   ========================= */
 
-    // Menu functions
-    function startGame() {
-      document.getElementById("menu").style.display = "none";
-      canvas.style.display = "block";
-      requestAnimationFrame(update);
-    }
+const cvs = document.getElementById('c');
+const ctx = cvs.getContext('2d');
+const W = cvs.width, H = cvs.height;
 
-    function showInstructions() {
-      alert("Use arrow keys to move the player.\nMove into the ball to push it.\nPress Space to kick.");
-    }
+// Match state
+let scoreRed = 0, scoreBlue = 0;
+let gameTime = 600; // seconds (10 minutes)
+let halfTime = false, gameOver = false;
+let autoKeeper = true;
 
-    function exitGame() {
-      alert("Thanks for playing Mini Soccer!");
-    }
+// Utilities
+const clamp = (v,a,b)=> Math.max(a, Math.min(b,v));
+const dist = (a,b) => Math.hypot(a.x-b.x, a.y-b.y);
+const rand = (a,b)=> a + Math.random()*(b-a);
 
-    // Controls
-    document.addEventListener("keydown", e => { keys[e.key] = true; });
-    document.addEventListener("keyup", e => { keys[e.key] = false; });
+// Ball (simple physics)
+const ball = { x: W/2, y: H/2, r: 8, vx: 0, vy: 0 };
 
-    function update() {
-      ctx.clearRect(0,0,canvas.width,canvas.height);
+// Player factory
+function makePlayer(x,y,team,name,role,homeX,homeY){
+  return {
+    x, y, vx:0, vy:0, r:12, team, name, role,
+    speed: role==='GK'?2.2:(role==='DEF'?2.3:(role==='MID'?2.6:3.0)),
+    homeX: homeX ?? x, homeY: homeY ?? y,
+    cooldown:0 // prevent constant kicking
+  };
+}
 
-      // Draw field
-      ctx.fillStyle = "#228B22";
-      ctx.fillRect(0,0,canvas.width,canvas.height);
-      ctx.strokeStyle = "white";
-      ctx.strokeRect(50, 50, 700, 400); // field boundary
+// Create 11 per team with roles and home positions
+const red = [];
+const blue = [];
+
+// Red formation (4-4-2 like)
+const redPositions = [
+  {x:120,y: H/2, role:'GK'},
+  {x:220,y:120, role:'DEF'},{x:220,y:240, role:'DEF'},{x:220,y:360, role:'DEF'},{x:220,y:480, role:'DEF'},
+  {x:360,y:110, role:'MID'},{x:360,y:230, role:'MID'},{x:360,y:350, role:'MID'},{x:360,y:470, role:'MID'},
+  {x:520,y:220, role:'ATT'},{x:520,y:400, role:'ATT'}
+];
+const redNames = ['GK R','A1','A2','A3','A4','M1','M2','M3','M4','F1','F2'];
+for(let i=0;i<11;i++){
+  const p = redPositions[i];
+  red.push(makePlayer(p.x,p.y,'red',redNames[i],p.role,p.x,p.y));
+}
+
+// Blue formation mirrored
+const bluePositions = redPositions.map(p => ({x: W - p.x, y: p.y, role: p.role}));
+const blueNames = ['GK B','B1','B2','B3','B4','M5','M6','M7','M8','F3','F4'];
+for(let i=0;i<11;i++){
+  const p = bluePositions[i];
+  blue.push(makePlayer(p.x,p.y,'blue',blueNames[i],p.role,p.x,p.y));
+}
+
+// Controlled player: make the first red attacker controllable (F1 at index 9)
+const controlled = red[9];
+
+// Input
+const keys = {};
+window.addEventListener('keydown', e => { keys[e.key]=true; if(e.key===' ') e.preventDefault(); });
+window.addEventListener('keyup', e => { keys[e.key]=false; });
+
+// Buttons
+document.getElementById('resetBtn').onclick = resetMatch;
+document.getElementById('toggleAuto').onclick = ()=>{
+  autoKeeper = !autoKeeper;
+  document.getElementById('toggleAuto').innerText = 'Auto Keeper: ' + (autoKeeper? 'ON':'OFF');
+};
+
+// Draw pitch
+function drawPitch(){
+  // grass stripes
+  for(let i=0;i<12;i++){
+    ctx.fillStyle = i%2 ? '#2b8b37' : '#3aa84b';
+    ctx.fillRect(0, i*(H/12), W, H/12);
+  }
+  ctx.strokeStyle='white'; ctx.lineWidth=2;
+  // boundaries
+  ctx.strokeRect(40,40,W-80,H-80);
+  // center line & circle
+  ctx.beginPath(); ctx.moveTo(W/2,40); ctx.lineTo(W/2,H-40); ctx.stroke();
+  ctx.beginPath(); ctx.arc(W/2,H/2,80,0,Math.PI*2); ctx.stroke();
+  // penalty boxes / goals simple
+  ctx.strokeRect(40, H/2 - 120, 120, 240);
+  ctx.strokeRect(W-160, H/2 - 120, 120, 240);
+  // goals line
+  ctx.fillStyle = '#fff'; ctx.fillRect(20, H/2 - 50, 20, 100);
+  ctx.fillRect(W-40, H/2 - 50, 20, 100);
+}
+
+// Draw players & ball
+function draw(){
+  drawPitch();
+
+  // players
+  function drawPlayers(arr){
+    arr.forEach(p=>{
       ctx.beginPath();
-      ctx.arc(canvas.width/2, canvas.height/2, 60, 0, Math.PI*2);
-      ctx.stroke();
-
-      // Move player
-      if(keys["ArrowUp"]) player.y -= 4;
-      if(keys["ArrowDown"]) player.y += 4;
-      if(keys["ArrowLeft"]) player.x -= 4;
-      if(keys["ArrowRight"]) player.x += 4;
-
-      // Draw player
-      ctx.beginPath();
-      ctx.arc(player.x, player.y, player.radius, 0, Math.PI*2);
-      ctx.fillStyle = player.color;
+      ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle = p.team;
       ctx.fill();
-
-      // Ball physics
-      ball.x += ball.dx;
-      ball.y += ball.dy;
-      ball.dx *= 0.98;
-      ball.dy *= 0.98;
-
-      // Collision with player
-      let dx = ball.x - player.x;
-      let dy = ball.y - player.y;
-      let dist = Math.sqrt(dx*dx + dy*dy);
-      if(dist < player.radius + ball.radius){
-        let angle = Math.atan2(dy, dx);
-        ball.dx = Math.cos(angle) * 5;
-        ball.dy = Math.sin(angle) * 5;
+      ctx.strokeStyle='white'; ctx.lineWidth=1; ctx.stroke();
+      // name
+      ctx.fillStyle='white'; ctx.font='11px Arial';
+      ctx.fillText(p.name, p.x - (p.name.length*3.2), p.y - p.r - 8);
+      // role small dot
+      if(p === controlled) {
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r+3, 0, Math.PI*2); ctx.strokeStyle='rgba(255,255,0,0.25)'; ctx.stroke();
       }
+    });
+  }
 
-      // Draw ball
-      ctx.beginPath();
-      ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI*2);
-      ctx.fillStyle = ball.color;
-      ctx.fill();
+  drawPlayers(red); drawPlayers(blue);
 
-      requestAnimationFrame(update);
+  // ball
+  ctx.beginPath(); ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
+  ctx.beginPath(); ctx.ellipse(ball.x, ball.y+7, 14,6,0,0,Math.PI*2); ctx.fillStyle='rgba(0,0,0,0.12)'; ctx.fill();
+
+  // UI
+  document.getElementById('score').innerText = `Red ${scoreRed} - ${scoreBlue} Blue`;
+  const mins = Math.floor(gameTime/60);
+  const secs = gameTime%60; document.getElementById('message').innerText = `Time: ${mins}:${secs<10? '0':''}${secs}`;
+}
+
+// Physics update for ball
+function updateBall(){
+  // apply velocity
+  ball.x += ball.vx; ball.y += ball.vy;
+  // friction
+  ball.vx *= 0.985; ball.vy *= 0.985;
+  // boundaries (inside pitch: 40..W-40, 40..H-40)
+  if(ball.x - ball.r < 40){ ball.x = 40 + ball.r; ball.vx *= -0.6; }
+  if(ball.x + ball.r > W-40){ ball.x = W-40 - ball.r; ball.vx *= -0.6; }
+  if(ball.y - ball.r < 40){ ball.y = 40 + ball.r; ball.vy *= -0.6; }
+  if(ball.y + ball.r > H-40){ ball.y = H-40 - ball.r; ball.vy *= -0.6; }
+
+  // goal checks (if the ball crosses goal area in between goal posts)
+  const goalTop = H/2 - 50, goalBottom = H/2 + 50;
+  // left goal
+  if(ball.x - ball.r <= 20 && ball.y > goalTop && ball.y < goalBottom){
+    scoreBlue++; kickoff('blue');
+  }
+  // right goal
+  if(ball.x + ball.r >= W-20 && ball.y > goalTop && ball.y < goalBottom){
+    scoreRed++; kickoff('red');
+  }
+}
+
+// kickoff / reset ball and positions after goal
+function kickoff(scoredBy){
+  // small celebration message
+  setTimeout(()=>{ alert(`Goal! ${scoredBy==='red' ? 'Red' : 'Blue'} scored.\nScore: Red ${scoreRed} - ${scoreBlue} Blue`); }, 20);
+  // reset ball center and give it to opposite side
+  ball.x = W/2; ball.y = H/2;
+  ball.vx = (scoredBy==='red' ? 2 : -2) * (Math.random()*0.8+0.6);
+  ball.vy = (Math.random()-0.5)*2;
+  // reset players to home positions
+  red.forEach(p=>{ p.x = p.homeX; p.y = p.homeY; p.cooldown = 0; });
+  blue.forEach(p=>{ p.x = p.homeX; p.y = p.homeY; p.cooldown = 0; });
+}
+
+// Controlled player input and movement
+function updateControlled(dt){
+  const sp = controlled.speed;
+  let ax=0, ay=0;
+  if(keys['ArrowUp']) ay -= 1;
+  if(keys['ArrowDown']) ay += 1;
+  if(keys['ArrowLeft']) ax -= 1;
+  if(keys['ArrowRight']) ax += 1;
+  if(ax!==0 || ay!==0){
+    const m = Math.hypot(ax,ay);
+    controlled.vx = (ax/m)*sp; controlled.vy = (ay/m)*sp;
+    controlled.x += controlled.vx; controlled.y += controlled.vy;
+    controlled.x = clamp(controlled.x, 40+controlled.r, W-40-controlled.r);
+    controlled.y = clamp(controlled.y, 40+controlled.r, H-40-controlled.r);
+  } else { controlled.vx *= 0.85; controlled.vy *= 0.85; controlled.x += controlled.vx; controlled.y += controlled.vy; }
+  // attempt kick with space (stronger kick toward mouse/player facing)
+  if(keys[' ']) {
+    attemptKick(controlled);
+  }
+}
+
+// AI for a single teammate/opponent
+function aiMove(player, teamArray, opponentArray){
+  // simple state: if near ball -> go to ball and kick; otherwise move toward home pos but adjust based on ball
+  const dBall = Math.hypot(player.x - ball.x, player.y - ball.y);
+
+  // goalkeeper behavior
+  if(player.role === 'GK'){
+    if(player.team === 'red' && !autoKeeper) { /* do nothing when auto keeper off */ }
+    // GK stays near goal center, but can dive for ball
+    const goalX = player.team === 'red' ? 60 : W-60;
+    const desiredY = H/2;
+    const dx = goalX - player.x, dy = desiredY - player.y;
+    player.vx += dx*0.05; player.vy += dy*0.05;
+    // dive if ball close
+    if(dBall < 120){
+      player.vx += (ball.x - player.x)*0.015;
+      player.vy += (ball.y - player.y)*0.015;
     }
-  </script>
+    player.x += clamp(player.vx, -player.speed, player.speed);
+    player.y += clamp(player.vy, -player.speed, player.speed);
+    player.x = clamp(player.x, 40+player.r, W-40-player.r);
+    player.y = clamp(player.y, 40+player.r, H-40-player.r);
+    // try save when ball very close
+    if(dBall < 20 && player.cooldown <= 0){
+      // reflect ball away
+      ball.vx = (ball.x < W/2 ? 3 : -3) * (Math.random()*0.8+0.6);
+      ball.vy = (Math.random()-0.5)*3;
+      player.cooldown = 25;
+    }
+    if(player.cooldown>0) player.cooldown--;
+    return;
+  }
+
+  // Field players
+  // Attackers more likely to chase when ball is in opponent half
+  let chase = false;
+  if(player.role === 'ATT' && ( (player.team==='red' && ball.x > W/2 - 60) || (player.team==='blue' && ball.x < W/2 + 60) )) chase = true;
+  if(dBall < 160) chase = true;
+  if(chase){
+    // move toward ball
+    const ax = ball.x - player.x, ay = ball.y - player.y;
+    const m = Math.hypot(ax,ay) || 1;
+    player.vx = (ax/m)*player.speed;
+    player.vy = (ay/m)*player.speed;
+  } else {
+    // return toward home position (formation)
+    const hx = player.homeX - player.x, hy = player.homeY - player.y;
+    player.vx = hx * 0.06;
+    player.vy = hy * 0.06;
+  }
+
+  // mark nearest opponent attacker if defender
+  if(player.role === 'DEF'){
+    // find closest opponent attacker
+    const oppAtts = opponentArray.filter(o=>o.role==='ATT' || o.role==='MID');
+    if(oppAtts.length){
+      let nearest = oppAtts[0], md = dist(player, oppAtts[0]);
+      for(let o of oppAtts){ const d = dist(player, o); if(d<md){ md=d; nearest=o; } }
+      // if opponent near our box, move to mark
+      if(dist(nearest, {x:W/2,y:H/2}) < 260) {
+        const ax = nearest.x - player.x, ay = nearest.y - player.y, m = Math.hypot(ax,ay)||1;
+        player.vx = (ax/m) * (player.speed*0.95);
+        player.vy = (ay/m) * (player.speed*0.95);
+      }
+    }
+  }
+
+  // apply movement
+  player.x += player.vx; player.y += player.vy;
+  player.x = clamp(player.x, 40+player.r, W-40-player.r);
+  player.y = clamp(player.y, 40+player.r, H-40-player.r);
+
+  // if near ball try to kick
+  const d = Math.hypot(player.x - ball.x, player.y - ball.y);
+  if(d < 18 && player.cooldown <= 0){
+    // kick direction: toward opponent goal with some targeting randomness
+    const targetX = player.team==='red' ? W - rand(200,80) : rand(80,200);
+    const targetY = H/2 + (Math.random()-0.5)*180;
+    const ax = targetX - ball.x, ay = targetY - ball.y;
+    const m = Math.hypot(ax,ay)||1;
+    // kick power depends on role
+    const power = player.role==='ATT'? rand(4.8,6.6) : player.role==='MID'? rand(3.2,5.0) : rand(2.0,3.8);
+    ball.vx = (ax/m) * power;
+    ball.vy = (ay/m) * power;
+    player.cooldown = 30 + Math.floor(Math.random()*30);
+  }
+  if(player.cooldown>0) player.cooldown--;
+}
+
+// Player update for arrays
+function updatePlayers(){
+  // controlled player moves by input
+  updateControlledPlayer();
+
+  // teammates
+  for(let p of red){
+    if(p !== controlled) aiMove(p, red, blue);
+  }
+  // opponents
+  for(let p of blue){
+    aiMove(p, blue, red);
+  }
+}
+
+// Controlled player behavior
+function updateControlledPlayer(){
+  const sp = controlled.speed;
+  let ax=0, ay=0;
+  if(keys['ArrowUp']) ay -= 1;
+  if(keys['ArrowDown']) ay += 1;
+  if(keys['ArrowLeft']) ax -= 1;
+  if(keys['ArrowRight']) ax += 1;
+  if(ax!==0 || ay!==0){
+    const m = Math.hypot(ax,ay);
+    controlled.vx = (ax/m)*sp; controlled.vy = (ay/m)*sp;
+  } else { controlled.vx *= 0.8; controlled.vy *= 0.8; }
+  controlled.x += controlled.vx; controlled.y += controlled.vy;
+  controlled.x = clamp(controlled.x, 40+controlled.r, W-40-controlled.r);
+  controlled.y = clamp(controlled.y, 40+controlled.r, H-40-controlled.r);
+  // space to shoot stronger
+  if(keys[' ']) attemptKick(controlled, true);
+  // small auto dribble (if ball very near)
+  if(Math.hypot(controlled.x - ball.x, controlled.y - ball.y) < 18 && !keys[' ']){
+    // move ball gently with player movement
+    ball.vx = (ball.vx*0.3) + controlled.vx*0.6;
+    ball.vy = (ball.vy*0.3) + controlled.vy*0.6;
+  }
+}
+
+// attemptKick: if player close enough, kick ball toward target (or toward goal)
+function attemptKick(player, strong=false){
+  const d = Math.hypot(player.x - ball.x, player.y - ball.y);
+  if(d > 30) return; // too far
+  // target: default toward opponent goal center
+  const tx = player.team === 'red' ? W - 60 : 60;
+  const ty = H/2;
+  // if mouse clicked, we could use mouse target — not implemented here
+  const ax = tx - ball.x, ay = ty - ball.y;
+  const m = Math.hypot(ax,ay)||1;
+  const base = strong? 7.5 : 5.2;
+  ball.vx = (ax/m) * base + (Math.random()-0.5)*1.2;
+  ball.vy = (ay/m) * (base*0.6) + (Math.random()-0.5)*1.2;
+  player.cooldown = 30;
+  // mark attempt
+}
+
+// Timer update
+function updateTimer(){
+  if(gameOver) return;
+  // run every second
+  // we'll decrement in the main loop with an accumulator
+}
+
+// simple tick counters for timer
+let accum = 0;
+function mainLoop(ts){
+  // ts is not used for physics accuracy here; use simple updates
+  // update ball physics
+  updateBall();
+  // update players
+  updatePlayers();
+
+  // render
+  ctx.clearRect(0,0,W,H);
+  draw();
+
+  // timer: reduce by 1 second every ~1000ms using accum
+  // use Date for accurate timing
+  if(!gameOver){
+    if(!mainLoop.last) mainLoop.last = performance.now();
+    const now = performance.now();
+    const delta = now - mainLoop.last;
+    accum += delta;
+    if(accum >= 1000){
+      accum -= 1000;
+      if(!halfTime && gameTime > 0) {
+        gameTime--;
+        if(gameTime === 300){ // half time at 300s left (after 5 minutes)
+          halfTime = true;
+          setTimeout(()=> alert(`⚽ Half Time! Score: Red ${scoreRed} - ${scoreBlue} Blue`),20);
+          // reset players home positions slightly
+          red.forEach(p=>{ p.x = p.homeX; p.y = p.homeY; });
+          blue.forEach(p=>{ p.x = p.homeX; p.y = p.homeY; });
+          // small pause then resume after 3 seconds
+          setTimeout(()=> { halfTime = false; }, 3000);
+        }
+        if(gameTime <= 0){
+          gameOver = true;
+          setTimeout(()=> alert(`🏆 Full Time! Final Score: Red ${scoreRed} - ${scoreBlue} Blue`),20);
+        }
+      } else if(halfTime){
+        // during halftime we still count down? we implemented a pause of 3s above
+      }
+    }
+    mainLoop.last = now;
+  }
+
+  // update scoreboard DOM
+  document.getElementById('score').innerText = `Red ${scoreRed} - ${scoreBlue} Blue`;
+  const mins = Math.floor(gameTime/60); const secs = gameTime%60;
+  document.getElementById('message').innerText = `Time: ${mins}:${secs<10?'0':''}${secs}`;
+
+  // next frame
+  requestAnimationFrame(mainLoop);
+}
+
+// Reset match
+function resetMatch(){
+  scoreRed = 0; scoreBlue = 0; gameTime = 600; halfTime=false; gameOver=false;
+  // reset positions
+  red.forEach((p,i)=>{ p.x = p.homeX; p.y = p.homeY; p.vx=0; p.vy=0; p.cooldown=0; });
+  blue.forEach((p,i)=>{ p.x = p.homeX; p.y = p.homeY; p.vx=0; p.vy=0; p.cooldown=0; });
+  ball.x = W/2; ball.y = H/2; ball.vx = ball.vy = 0;
+}
+
+// start
+resetMatch();
+requestAnimationFrame(mainLoop);
+
+</script>
 </body>
 </html>

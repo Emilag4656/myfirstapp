@@ -1,3 +1,9 @@
-function showMessage() {
-    alert("Welcome to my first app, Emilag! 🚀");
-}
+Scenes/
+  Main.tscn
+  Player.tscn
+  AIPlayer.tscn
+Scripts/
+  Player.gd
+  AIPlayer.gd
+  GameManager.gd
+  SpawnManager.gd

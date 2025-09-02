@@ -1,15 +1,19 @@
-body {
-    font-family: Arial, sans-serif;
-    background-color: #f2f2f2;
-    text-align: center;
-    margin-top: 50px;
-}
+extends KinematicBody
 
-h1 {
-    color: #ff6600;
-}
+var speed = 8
+var rotation_speed = 4
+var target = null # Ball or player to chase
+var team = 1 # 1 = your team, 2 = opponent
 
-p {
-    font-size: 18px;
-    color: #333;
-}
+onready var ball = get_node("/root/Main/Ball")
+
+func _physics_process(delta):
+    if target:
+        var dir = (target.global_transform.origin - global_transform.origin).normalized()
+        look_at(target.global_transform.origin, Vector3.UP)
+        move_and_slide(dir * speed, Vector3.UP)
+    else:
+        # Default behavior: chase ball
+        var dir = (ball.global_transform.origin - global_transform.origin).normalized()
+        look_at(ball.global_transform.origin, Vector3.UP)
+        move_and_slide(dir * speed, Vector3.UP)

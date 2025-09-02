@@ -1,40 +1,144 @@
 <!DOCTYPE html>
-<html>
-<head><link rel="stylesheet" href="style.css">
-  <title>My First App</title>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Football League</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(to bottom, #00416a, #e4e5e6);
+      text-align: center;
+      padding: 20px;
+      color: white;
+    }
+    h1 {
+      margin-bottom: 20px;
+      font-size: 2rem;
+    }
+    table {
+      margin: 20px auto;
+      border-collapse: collapse;
+      width: 90%;
+      max-width: 800px;
+      background: white;
+      color: black;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: center;
+    }
+    th {
+      background: #00416a;
+      color: white;
+    }
+    button {
+      background: #28a745;
+      border: none;
+      padding: 10px 15px;
+      margin: 5px;
+      border-radius: 8px;
+      color: white;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    button:hover {
+      background: #218838;
+    }
+  </style>
 </head>
-<script src="script.js"></script>
-<button <h2>Football Score Tracker ⚽</h2>
-<p>Team A: <span id="teamA">0</span></p>
-<p>Team B: <span id="teamB">0</span></p>
-
-<button onclick="scoreA()">Add Goal to Team A</button>
-<button onclick="scoreB()">Add Goal to Team B</button>
-<button onclick="resetScore()">Reset Scores</button>
-
-<script>
-  let teamAScore = 0;
-  let teamBScore = 0;
-
-  function scoreA() {
-      teamAScore++;
-      document.getElementById("teamA").textContent = teamAScore;
-  }
-
-  function scoreB() {
-      teamBScore++;
-      document.getElementById("teamB").textContent = teamBScore;
-  }
-
-  function resetScore() {
-      teamAScore = 0;
-      teamBScore = 0;
-      document.getElementById("teamA").textContent = teamAScore;
-      document.getElementById("teamB").textContent = teamBScore;
-  }
-</script>
 <body>
-  <h1>Hello Emilag 🚀</h1>
-  <p>This is my first web app!</p>
+  <h1>⚽ Football League Simulator ⚽</h1>
+
+  <button onclick="playRound()">Play Round</button>
+  <button onclick="resetLeague()">Reset League</button>
+
+  <table id="leagueTable">
+    <thead>
+      <tr>
+        <th>Team</th>
+        <th>Played</th>
+        <th>Won</th>
+        <th>Draw</th>
+        <th>Lost</th>
+        <th>GF</th>
+        <th>GA</th>
+        <th>Points</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    // League Teams
+    const teams = [
+      { name: "Barcelona", played: 0, won: 0, draw: 0, lost: 0, gf: 0, ga: 0, points: 0 },
+      { name: "Chelsea", played: 0, won: 0, draw: 0, lost: 0, gf: 0, ga: 0, points: 0 },
+      { name: "Real Madrid", played: 0, won: 0, draw: 0, lost: 0, gf: 0, ga: 0, points: 0 },
+      { name: "Arsenal", played: 0, won: 0, draw: 0, lost: 0, gf: 0, ga: 0, points: 0 }
+    ];
+
+    function updateTable() {
+      const tbody = document.querySelector("#leagueTable tbody");
+      tbody.innerHTML = "";
+      teams.sort((a, b) => b.points - a.points || (b.gf - b.ga) - (a.gf - a.ga));
+      teams.forEach(team => {
+        tbody.innerHTML += `
+          <tr>
+            <td>${team.name}</td>
+            <td>${team.played}</td>
+            <td>${team.won}</td>
+            <td>${team.draw}</td>
+            <td>${team.lost}</td>
+            <td>${team.gf}</td>
+            <td>${team.ga}</td>
+            <td>${team.points}</td>
+          </tr>
+        `;
+      });
+    }
+
+    function playMatch(teamA, teamB) {
+      let goalsA = Math.floor(Math.random() * 5);
+      let goalsB = Math.floor(Math.random() * 5);
+
+      teamA.played++; teamB.played++;
+      teamA.gf += goalsA; teamA.ga += goalsB;
+      teamB.gf += goalsB; teamB.ga += goalsA;
+
+      if (goalsA > goalsB) {
+        teamA.won++; teamA.points += 3;
+        teamB.lost++;
+      } else if (goalsA < goalsB) {
+        teamB.won++; teamB.points += 3;
+        teamA.lost++;
+      } else {
+        teamA.draw++; teamB.draw++;
+        teamA.points++; teamB.points++;
+      }
+    }
+
+    function playRound() {
+      for (let i = 0; i < teams.length; i++) {
+        for (let j = i + 1; j < teams.length; j++) {
+          playMatch(teams[i], teams[j]);
+        }
+      }
+      updateTable();
+    }
+
+    function resetLeague() {
+      teams.forEach(t => {
+        t.played = t.won = t.draw = t.lost = t.gf = t.ga = t.points = 0;
+      });
+      updateTable();
+    }
+
+    updateTable();
+  </script>
 </body>
 </html>
